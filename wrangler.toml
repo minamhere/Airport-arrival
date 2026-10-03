@@ -1,0 +1,9 @@
+name = "flight-planner"
+pages_build_output_dir = "public"
+compatibility_date = "2025-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "flight-planner"
+# Replace with the id printed by: npx wrangler d1 create flight-planner
+database_id = "00000000-0000-0000-0000-000000000000"

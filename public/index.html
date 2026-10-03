@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Flight Planner" />
+  <meta name="theme-color" content="#080e1a" />
+  <title>Flight Departure Planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #080e1a;
+      --card: #0d1520;
+      --border: #1a2840;
+      --track: #1e2d3d;
+      --text: #e2e8f4;
+      --muted: #8a9ab8;
+      --dim: #5a7090;
+      --cyan: #00e5ff;
+      --green: #7cffa0;
+      --yellow: #ffd166;
+      --orange: #ff9a3c;
+      --red: #ff4d6d;
+      --mono: 'JetBrains Mono', ui-monospace, monospace;
+    }
+
+    html, body {
+      background: var(--bg); color: var(--text);
+      font-family: 'Sora', system-ui, sans-serif;
+      min-height: 100vh; min-height: -webkit-fill-available;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      display: flex; justify-content: center;
+      padding: max(env(safe-area-inset-top), 24px) 16px max(env(safe-area-inset-bottom), 32px);
+    }
+    .wrap { width: 100%; max-width: 440px; }
+    button { font-family: inherit; color: inherit; cursor: pointer; }
+    input, select { font-family: inherit; }
+
+    /* Header */
+    .header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+    .header-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.15em; color: var(--dim); text-transform: uppercase; margin-bottom: 6px; }
+    .header-title { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+    .sync { font-size: 11px; color: var(--dim); text-align: right; white-space: nowrap; }
+    .sync.err { color: var(--orange); }
+    .back { background: none; border: none; color: var(--cyan); font-size: 15px; font-weight: 600; padding: 8px 0; margin-bottom: 4px; }
+
+    /* Cards */
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 14px; }
+    .card-tight { padding: 6px; }
+    .section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
+    .note { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .note.err { color: var(--orange); }
+    .banner { border-radius: 10px; padding: 12px 14px; font-size: 13px; margin-bottom: 14px; line-height: 1.45; }
+    .banner.warn { background: #1f1508; border: 1px solid #ff9a3c60; color: var(--orange); }
+
+    /* Form controls */
+    .field { margin-bottom: 12px; }
+    .field:last-child { margin-bottom: 0; }
+    .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .input {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+      font-size: 16px; padding: 11px 12px; width: 100%; outline: none; -webkit-appearance: none; appearance: none;
+      transition: border-color 0.2s; min-height: 44px;
+    }
+    .input:focus { border-color: var(--cyan); }
+    .input::-webkit-calendar-picker-indicator { filter: invert(0.5) sepia(1) saturate(2) hue-rotate(170deg); }
+    .input.big { font-family: var(--mono); font-size: 24px; font-weight: 600; text-align: center; }
+    .row { display: flex; gap: 10px; }
+    .row > * { flex: 1; min-width: 0; }
+
+    .btn {
+      min-height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--border);
+      background: #12203a; font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn.primary { background: var(--cyan); color: var(--bg); border-color: var(--cyan); }
+    .btn.danger { background: transparent; color: var(--red); border-color: #ff4d6d50; }
+    .btn.ghost { background: transparent; }
+    .btn.block { width: 100%; }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+    .link { background: none; border: none; color: var(--cyan); font-size: 12px; font-weight: 600; padding: 4px 0; }
+
+    .toggle { display: flex; gap: 4px; }
+    .toggle-btn {
+      flex: 1; min-height: 40px; border: none; font-size: 13px; font-weight: 600; letter-spacing: 0.04em;
+      border-radius: 6px; background: transparent; color: #6a80a0; transition: all 0.2s;
+    }
+    .toggle-btn.active { background: var(--cyan); color: var(--bg); }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      min-height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid var(--border);
+      background: var(--bg); font-size: 13px; color: var(--muted);
+    }
+    .chip.active { border-color: var(--cyan); color: var(--cyan); }
+
+    .picker {
+      width: 100%; text-align: left; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 12px; min-height: 52px; display: flex; align-items: center; gap: 12px;
+    }
+    .picker .code { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--cyan); min-width: 48px; }
+    .picker .name { font-size: 13px; color: var(--muted); line-height: 1.3; flex: 1; }
+    .picker .chev { color: var(--dim); }
+
+    /* Results lists */
+    .results { margin-top: 10px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .result { display: block; width: 100%; text-align: left; background: var(--bg); border: none; border-bottom: 1px solid var(--border); padding: 12px; font-size: 13px; color: var(--text); line-height: 1.35; }
+    .result:last-child { border-bottom: none; }
+    .result .code { font-family: var(--mono); font-weight: 700; color: var(--cyan); margin-right: 8px; }
+    .result small { color: var(--muted); }
+
+    /* Estimate box */
+    .estimate { margin-top: 12px; padding: 12px; border-radius: 8px; background: #0a1a26; border: 1px solid #00e5ff30; }
+    .estimate .big { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--cyan); }
+
+    /* Segment bars */
+    .seg { margin-bottom: 16px; }
+    .seg:last-of-type { margin-bottom: 0; }
+    .seg-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+    .seg-label { font-size: 13px; color: #aab4c8; }
+    .seg-val {
+      font-family: var(--mono); font-size: 14px; font-weight: 600; background: none; border: none;
+      border-bottom: 1px dashed var(--dim); padding: 4px 2px; min-width: 64px; text-align: right;
+    }
+    .seg-val.zero { color: var(--dim); }
+    .seg-edit { font-family: var(--mono); font-size: 16px; width: 84px; text-align: right; padding: 4px 6px; background: var(--bg); color: var(--text); border: 1px solid var(--cyan); border-radius: 6px; outline: none; }
+    .seg-ctl { display: flex; align-items: center; gap: 10px; }
+    .step {
+      width: 44px; height: 44px; flex-shrink: 0; border-radius: 10px; border: 1px solid var(--border);
+      background: #12203a; font-size: 22px; font-weight: 600; line-height: 1; touch-action: manipulation;
+      user-select: none; -webkit-user-select: none;
+    }
+    .step:active { background: #1a2d50; }
+    .bar { position: relative; flex: 1; height: 44px; touch-action: pan-y; cursor: pointer; outline: none; user-select: none; -webkit-user-select: none; }
+    .bar-bg, .bar-fill { position: absolute; left: 0; top: 50%; height: 8px; margin-top: -4px; border-radius: 4px; }
+    .bar-bg { right: 0; background: var(--track); }
+    .bar-fill { background: linear-gradient(90deg, var(--cyan), var(--green)); }
+    .bar-thumb {
+      position: absolute; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%;
+      background: var(--text); border: 3px solid var(--cyan); box-shadow: 0 2px 8px #0008; transition: transform 0.1s;
+    }
+    .bar.dragging .bar-thumb, .bar:focus-visible .bar-thumb { transform: scale(1.2); }
+    .bar:focus-visible .bar-bg { box-shadow: 0 0 0 2px var(--cyan); }
+
+    .divider { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .divider-label { font-size: 12px; color: var(--dim); }
+    .divider-value { font-family: var(--mono); font-size: 14px; color: var(--cyan); font-weight: 600; }
+
+    /* Schedule */
+    .schedule-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #0d1e30; }
+    .schedule-row:last-child { border-bottom: none; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .time-val { font-family: var(--mono); font-size: 15px; font-weight: 600; min-width: 86px; }
+    .time-val small { display: block; font-size: 10px; font-weight: 400; color: var(--muted); }
+    .step-label { font-size: 13px; color: var(--muted); flex: 1; }
+    .depart-highlight {
+      background: linear-gradient(135deg, #0d1a2a, #081525); border: 1px solid #ff4d6d40; border-radius: 10px;
+      padding: 14px 16px; margin-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .depart-label { font-size: 11px; color: var(--red); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 2px; }
+    .depart-time { font-family: var(--mono); font-size: 30px; font-weight: 700; color: var(--red); }
+    .countdown { font-size: 12px; color: var(--muted); text-align: right; }
+    .warning { margin-top: 12px; padding: 10px 14px; background: #1a0a0a; border: 1px solid #ff4d6d60; border-radius: 8px; color: var(--red); font-size: 13px; font-weight: 600; }
+
+    /* Trip list */
+    .trip-card { display: block; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+    .trip-card.past { opacity: 0.55; }
+    .trip-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+    .trip-name { font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .trip-code { font-family: var(--mono); font-size: 13px; color: var(--cyan); font-weight: 700; }
+    .trip-meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .trip-leave { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; }
+    .trip-leave .t { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--red); }
+    .trip-leave .c { font-size: 12px; color: var(--muted); }
+    .empty { text-align: center; padding: 28px 12px; color: var(--muted); font-size: 14px; }
+    .list-head { display: flex; justify-content: space-between; align-items: center; margin: 18px 0 10px; }
+
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .footer { font-size: 11px; color: #3a5070; text-align: center; margin-top: 12px; line-height: 1.6; }
+    .footer a { color: inherit; }
+
+    /* Sheet */
+    .sheet-backdrop { position: fixed; inset: 0; background: #000a; display: flex; align-items: flex-end; justify-content: center; z-index: 10; }
+    .sheet {
+      width: 100%; max-width: 480px; max-height: 85vh; overflow-y: auto; background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px 16px 0 0; padding: 18px 16px max(env(safe-area-inset-bottom), 18px);
+    }
+    .sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .sheet-title { font-size: 16px; font-weight: 700; }
+
+    .toast { position: fixed; left: 50%; bottom: max(env(safe-area-inset-bottom), 24px); transform: translateX(-50%); background: #12203a; border: 1px solid var(--border); padding: 10px 16px; border-radius: 20px; font-size: 13px; z-index: 20; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div id="sheet-root"></div>
+<div class="toast hidden" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ───────────── Configuration ───────────── */
+
+const API = 'api';
+// Free, keyless services. Neither includes live traffic; the traffic padding compensates.
+const GEOCODER = 'https://nominatim.openstreetmap.org';
+const ROUTER = 'https://router.project-osrm.org/route/v1/driving';
+
+const SEGMENTS = [
+  { key: 'drive',      max: 240 },
+  { key: 'parking',    max: 60,  label: 'Park & shuttle to terminal' },
+  { key: 'security',   max: 90,  label: 'Security screening' },
+  { key: 'walkToStop', max: 30 },
+  { key: 'stop',       max: 180 },
+  { key: 'walkToGate', max: 30 },
+  { key: 'preBoard',   max: 60,  label: 'Boarding → takeoff' },
+];
+const STEP = 5;
+
+const PRESETS = {
+  domestic:      { parking: 10, security: 15, walkToStop: 10, stop: 45, walkToGate: 5,  preBoard: 40 },
+  international: { parking: 10, security: 15, walkToStop: 10, stop: 90, walkToGate: 20, preBoard: 40 },
+};
+
+const STOP_TYPES = {
+  lounge: { name: 'Lounge',     walk1: 'Security → lounge walk',     dwell: 'Lounge time',     walk2: 'Lounge → gate walk',     arrive: '🥃 Arrive lounge',     leave: '🚶 Leave lounge → gate' },
+  dining: { name: 'Restaurant', walk1: 'Security → restaurant walk', dwell: 'Meal time',       walk2: 'Restaurant → gate walk', arrive: '🍽 Arrive restaurant', leave: '🚶 Leave restaurant → gate' },
+  none:   { name: 'Straight to gate', walk1: 'Security → gate walk' },
+};
+
+const TRAFFIC_PADS = [0, 10, 20, 30, 50];
+
+// Major airports (terminal-area coordinates). Any other airport can be found with the worldwide search.
+const AIRPORTS = [
+  ['ABQ','Albuquerque International Sunport','Albuquerque, NM',35.0402,-106.6090],
+  ['ANC','Ted Stevens Anchorage International','Anchorage, AK',61.1743,-149.9963],
+  ['ATL','Hartsfield-Jackson Atlanta International','Atlanta, GA',33.6407,-84.4277],
+  ['AUS','Austin-Bergstrom International','Austin, TX',30.1975,-97.6664],
+  ['BNA','Nashville International','Nashville, TN',36.1263,-86.6774],
+  ['BOI','Boise Airport','Boise, ID',43.5644,-116.2228],
+  ['BOS','Boston Logan International','Boston, MA',42.3656,-71.0096],
+  ['BUR','Hollywood Burbank Airport','Burbank, CA',34.2007,-118.3587],
+  ['BWI','Baltimore/Washington International','Baltimore, MD',39.1774,-76.6684],
+  ['CLE','Cleveland Hopkins International','Cleveland, OH',41.4058,-81.8539],
+  ['CLT','Charlotte Douglas International','Charlotte, NC',35.2140,-80.9431],
+  ['COS','Colorado Springs Airport','Colorado Springs, CO',38.8058,-104.7008],
+  ['CVG','Cincinnati/Northern Kentucky International','Hebron, KY',39.0489,-84.6678],
+  ['DAL','Dallas Love Field','Dallas, TX',32.8471,-96.8518],
+  ['DCA','Ronald Reagan Washington National','Arlington, VA',38.8512,-77.0402],
+  ['DEN','Denver International','Denver, CO',39.8493,-104.6738],
+  ['DFW','Dallas/Fort Worth International','DFW Airport, TX',32.8998,-97.0403],
+  ['DTW','Detroit Metropolitan Wayne County','Romulus, MI',42.2162,-83.3554],
+  ['ELP','El Paso International','El Paso, TX',31.8072,-106.3776],
+  ['EWR','Newark Liberty International','Newark, NJ',40.6895,-74.1745],
+  ['FLL','Fort Lauderdale-Hollywood International','Fort Lauderdale, FL',26.0742,-80.1506],
+  ['HNL','Daniel K. Inouye International','Honolulu, HI',21.3245,-157.9251],
+  ['HOU','William P. Hobby','Houston, TX',29.6454,-95.2789],
+  ['IAD','Washington Dulles International','Dulles, VA',38.9531,-77.4565],
+  ['IAH','George Bush Intercontinental','Houston, TX',29.9902,-95.3368],
+  ['IND','Indianapolis International','Indianapolis, IN',39.7173,-86.2944],
+  ['JAX','Jacksonville International','Jacksonville, FL',30.4941,-81.6879],
+  ['JFK','John F. Kennedy International','New York, NY',40.6413,-73.7781],
+  ['LAS','Harry Reid International','Las Vegas, NV',36.0840,-115.1537],
+  ['LAX','Los Angeles International','Los Angeles, CA',33.9416,-118.4085],
+  ['LGA','LaGuardia','New York, NY',40.7769,-73.8740],
+  ['MCI','Kansas City International','Kansas City, MO',39.2976,-94.7139],
+  ['MCO','Orlando International','Orlando, FL',28.4312,-81.3081],
+  ['MDW','Chicago Midway International','Chicago, IL',41.7868,-87.7522],
+  ['MIA','Miami International','Miami, FL',25.7959,-80.2870],
+  ['MKE','Milwaukee Mitchell International','Milwaukee, WI',42.9476,-87.8966],
+  ['MSP','Minneapolis-Saint Paul International','Minneapolis, MN',44.8848,-93.2223],
+  ['MSY','Louis Armstrong New Orleans International','Kenner, LA',29.9934,-90.2580],
+  ['OAK','Oakland International','Oakland, CA',37.7126,-122.2197],
+  ['OGG','Kahului Airport','Kahului, HI',20.8986,-156.4305],
+  ['OKC','Will Rogers World Airport','Oklahoma City, OK',35.3931,-97.6007],
+  ['OMA','Eppley Airfield','Omaha, NE',41.3032,-95.8941],
+  ['ORD',"Chicago O'Hare International",'Chicago, IL',41.9742,-87.9073],
+  ['PDX','Portland International','Portland, OR',45.5898,-122.5951],
+  ['PHL','Philadelphia International','Philadelphia, PA',39.8744,-75.2424],
+  ['PHX','Phoenix Sky Harbor International','Phoenix, AZ',33.4352,-112.0101],
+  ['PIT','Pittsburgh International','Pittsburgh, PA',40.4919,-80.2352],
+  ['RDU','Raleigh-Durham International','Morrisville, NC',35.8801,-78.7880],
+  ['RNO','Reno-Tahoe International','Reno, NV',39.4991,-119.7681],
+  ['RSW','Southwest Florida International','Fort Myers, FL',26.5362,-81.7552],
+  ['SAN','San Diego International','San Diego, CA',32.7338,-117.1933],
+  ['SAT','San Antonio International','San Antonio, TX',29.5337,-98.4698],
+  ['SEA','Seattle-Tacoma International','SeaTac, WA',47.4502,-122.3088],
+  ['SFO','San Francisco International','San Francisco, CA',37.6213,-122.3790],
+  ['SJC','San José Mineta International','San Jose, CA',37.3639,-121.9289],
+  ['SLC','Salt Lake City International','Salt Lake City, UT',40.7899,-111.9791],
+  ['SMF','Sacramento International','Sacramento, CA',38.6951,-121.5908],
+  ['SNA','John Wayne Airport','Santa Ana, CA',33.6762,-117.8675],
+  ['STL','St. Louis Lambert International','St. Louis, MO',38.7499,-90.3748],
+  ['TPA','Tampa International','Tampa, FL',27.9755,-82.5332],
+  ['TUL','Tulsa International','Tulsa, OK',36.1984,-95.8881],
+  ['TUS','Tucson International','Tucson, AZ',32.1161,-110.9410],
+].map(([code, name, city, lat, lon]) => ({ code, name, city, lat, lon }));
+
+/* ───────────── Helpers ───────────── */
+
+const $ = sel => document.querySelector(sel);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)).replace(/[^A-Za-z0-9_-]/g, '');
+const pad2 = n => String(n).padStart(2, '0');
+const isoDate = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const addMins = (d, m) => new Date(d.getTime() + m * 60000);
+
+function fmtMins(v) {
+  if (v < 60) return `${v}m`;
+  const h = Math.floor(v / 60), m = v % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
+const fmtTime = d => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+const fmtDay = d => d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+function fmtCountdown(ms) {
+  const abs = Math.abs(ms), mins = Math.round(abs / 60000);
+  const d = Math.floor(mins / 1440), h = Math.floor((mins % 1440) / 60), m = mins % 60;
+  const s = d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`;
+  return ms >= 0 ? `in ${s}` : `${s} ago`;
+}
+
+function toast(msg) {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => el.classList.add('hidden'), 2200);
+}
+
+function shortAddress(r) {
+  const a = r.address || {};
+  const street = [a.house_number, a.road].filter(Boolean).join(' ');
+  const town = a.city || a.town || a.village || a.hamlet || a.suburb || a.county;
+  const parts = [street || r.name, town, a.state].filter(Boolean);
+  return parts.length ? [...new Set(parts)].join(', ') : r.display_name;
+}
+
+async function getJSON(url, opts) {
+  const res = await fetch(url, opts);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+/* ───────────── State ───────────── */
+
+const state = {
+  trips: new Map(),
+  places: new Map(),
+  mode: 'loading',        // loading | signin | synced | local
+  syncError: '',
+  pending: new Map(),     // "kind/id" -> { kind, id, data|null }
+  saving: false,
+  view: { name: 'list' },
+};
+
+function newTrip() {
+  const recent = [...state.trips.values()].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+  const den = AIRPORTS.find(a => a.code === 'DEN');
+  return {
+    id: uid(),
+    name: '',
+    airport: recent?.airport || { code: den.code, name: den.name, lat: den.lat, lon: den.lon },
+    origin: recent?.origin || null,
+    date: isoDate(tomorrow),
+    time: '10:30',
+    type: 'domestic',
+    stopType: recent?.stopType || 'lounge',
+    cfg: { drive: recent?.cfg?.drive ?? 90, ...PRESETS.domestic },
+    trafficPad: recent?.trafficPad ?? 10,
+    estimate: recent?.estimate || null,   // { baseMins, km, airportCode, originLabel, at }
+    driveSource: recent?.driveSource || 'manual',
+    updatedAt: Date.now(),
+  };
+}
+
+/* ───────────── Schedule math ───────────── */
+
+function computeSchedule(trip) {
+  const c = trip.cfg;
+  const [y, mo, d] = trip.date.split('-').map(Number);
+  const [h, mi] = trip.time.split(':').map(Number);
+  const takeoff = new Date(y, mo - 1, d, h, mi, 0, 0);
+  const st = trip.stopType;
+  const hasStop = st !== 'none';
+  const stop = hasStop ? c.stop : 0;
+  const walkToGate = hasStop ? c.walkToGate : 0;
+
+  const boarding    = addMins(takeoff, -c.preBoard);
+  const leaveStop   = addMins(boarding, -walkToGate);
+  const arriveStop  = addMins(leaveStop, -stop);
+  const clearSec    = addMins(arriveStop, -c.walkToStop);
+  const enterSec    = addMins(clearSec, -c.security);
+  const parked      = addMins(enterSec, -c.parking);
+  const depart      = addMins(parked, -c.drive);
+  const total       = c.drive + c.parking + c.security + c.walkToStop + stop + walkToGate + c.preBoard;
+
+  const T = STOP_TYPES[st];
+  const rows = [
+    { time: takeoff,  label: '✈ Takeoff',                 color: '#00e5ff' },
+    { time: boarding, label: '🚪 Boarding starts',         color: '#7cffa0' },
+  ];
+  if (hasStop) {
+    rows.push({ time: leaveStop,  label: T.leave,  color: '#7cffa0' });
+    rows.push({ time: arriveStop, label: T.arrive, color: '#ffd166' });
+  }
+  rows.push(
+    { time: clearSec, label: '✅ Clear security',          color: '#ffd166' },
+    { time: enterSec, label: '🔍 Enter security',          color: '#ff9a3c' },
+    { time: parked,   label: '🏃 Parked / enter terminal', color: '#ff9a3c' },
+    { time: depart,   label: '🏠 Leave home',              color: '#ff4d6d' },
+  );
+  return { takeoff, depart, rows, total };
+}
+
+function scheduleText(trip) {
+  const s = computeSchedule(trip);
+  const lines = [`${trip.name || 'Trip'} — ${trip.airport.code}, ${fmtDay(s.takeoff)}`];
+  for (const r of [...s.rows].reverse()) {
+    const day = isoDate(r.time) !== isoDate(s.takeoff) ? ` (${fmtDay(r.time)})` : '';
+    lines.push(`${fmtTime(r.time).padStart(8)}${day}  ${r.label.replace(/^\S+\s/, '')}`);
+  }
+  return lines.join('\n');
+}
+
+/* ───────────── Sync ───────────── */
+
+async function api(path, opts = {}) {
+  const res = await fetch(`${API}/${path}`, {
+    credentials: 'same-origin',
+    ...opts,
+    headers: opts.body ? { 'content-type': 'application/json' } : {},
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) { const e = new Error(body.error || `HTTP ${res.status}`); e.status = res.status; throw e; }
+  return body;
+}
+
+async function boot() {
+  try {
+    const s = await api('session');
+    if (!s.authenticated) { state.mode = 'signin'; render(); return; }
+    await loadAll();
+    state.mode = 'synced';
+  } catch (e) {
+    state.mode = 'local';
+    state.syncError = e.status === 503 ? e.message : 'Sync server not reachable.';
+  }
+  routeFromHash();
+}
+
+async function loadAll() {
+  const { items } = await api('items');
+  state.trips.clear(); state.places.clear();
+  for (const it of items) {
+    const map = it.kind === 'trip' ? state.trips : state.places;
+    map.set(it.id, { ...it.data, id: it.id, updatedAt: it.updatedAt });
+  }
+}
+
+function queueSave(kind, obj) {
+  obj.updatedAt = Date.now();
+  state.pending.set(`${kind}/${obj.id}`, { kind, id: obj.id, data: obj });
+  scheduleFlush();
+}
+function queueDelete(kind, id) {
+  state.pending.set(`${kind}/${id}`, { kind, id, data: null });
+  scheduleFlush();
+}
+function scheduleFlush() {
+  clearTimeout(scheduleFlush.t);
+  scheduleFlush.t = setTimeout(flush, 600);
+  renderSync();
+}
+
+async function flush() {
+  if (state.mode !== 'synced' || state.saving || !state.pending.size) { renderSync(); return; }
+  state.saving = true; renderSync();
+  try {
+    for (const [key, op] of [...state.pending]) {
+      const snapshot = op.data && JSON.stringify(op.data);
+      if (op.data) await api(`items/${op.kind}/${op.id}`, { method: 'PUT', body: snapshot });
+      else await api(`items/${op.kind}/${op.id}`, { method: 'DELETE' });
+      // Only clear if nothing newer was queued while this request was in flight.
+      const cur = state.pending.get(key);
+      if (cur && (cur.data ? JSON.stringify(cur.data) : null) === snapshot) state.pending.delete(key);
+      else if (cur === op) state.pending.delete(key);
+    }
+    state.syncError = '';
+  } catch (e) {
+    if (e.status === 401) { state.mode = 'signin'; render(); }
+    state.syncError = 'Not saved — will retry';
+  } finally {
+    state.saving = false;
+    renderSync();
+    if (state.pending.size && !state.syncError) scheduleFlush();
+  }
+}
+
+window.addEventListener('online', flush);
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'hidden') { flush(); return; }
+  if (state.mode !== 'synced') return;
+  if (state.pending.size) { flush(); return; }
+  // Pick up edits made on other devices, unless the user is mid-edit.
+  if (state.view.name === 'list') { try { await loadAll(); render(); } catch { /* keep current data */ } }
+});
+window.addEventListener('beforeunload', e => {
+  const unsaved = state.mode === 'synced' ? state.pending.size : state.mode === 'local' && state.trips.size;
+  if (unsaved) e.preventDefault();
+});
+
+function syncLabel() {
+  if (state.mode === 'local') return { text: 'Not syncing', err: true };
+  if (state.syncError) return { text: state.syncError, err: true };
+  if (state.saving || state.pending.size) return { text: 'Saving…' };
+  if (state.mode === 'synced') return { text: 'Saved ✓' };
+  return { text: '' };
+}
+function renderSync() {
+  const el = $('#sync');
+  if (!el) return;
+  const s = syncLabel();
+  el.textContent = s.text;
+  el.classList.toggle('err', !!s.err);
+  if (state.syncError && state.mode === 'synced') {
+    el.innerHTML = `${esc(s.text)}<br><button class="link" onclick="state.syncError='';flush()">Retry now</button>`;
+  }
+}
+
+/* ───────────── Routing ───────────── */
+
+function routeFromHash() {
+  const m = location.hash.match(/^#trip\/([A-Za-z0-9_-]+)$/);
+  if (m && state.trips.has(m[1])) state.view = { name: 'trip', id: m[1] };
+  else if (location.hash === '#new') { const t = newTrip(); state.trips.set(t.id, t); queueSave('trip', t); history.replaceState(null, '', `#trip/${t.id}`); state.view = { name: 'trip', id: t.id }; }
+  else state.view = { name: 'list' };
+  render();
+  window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', () => { if (state.mode !== 'loading' && state.mode !== 'signin') routeFromHash(); });
+
+/* ───────────── Views ───────────── */
+
+function render() {
+  closeSheet();
+  const app = $('#app');
+  if (state.mode === 'loading') { app.innerHTML = `<div class="empty">Loading…</div>`; return; }
+  if (state.mode === 'signin') { app.innerHTML = signinView(); return; }
+  if (state.view.name === 'trip') renderTrip(state.trips.get(state.view.id));
+  else app.innerHTML = listView();
+  renderSync();
+}
+
+function header(eyebrow, title) {
+  return `<div class="header">
+    <div><div class="header-eyebrow">${esc(eyebrow)}</div><div class="header-title">${title}</div></div>
+    <div class="sync" id="sync"></div>
+  </div>`;
+}
+
+function signinView() {
+  return `${header('Flight Planner', 'Sign in')}
+    <div class="card">
+      <form onsubmit="event.preventDefault();signIn()">
+        <input type="text" name="username" autocomplete="username" value="flight-planner" class="hidden" aria-hidden="true" tabindex="-1">
+        <div class="field"><label for="pass">Sync passphrase</label>
+          <input class="input" id="pass" type="password" autocomplete="current-password" required></div>
+        <div class="note err hidden" id="signin-err"></div>
+        <button class="btn primary block" style="margin-top:12px">Sign in</button>
+      </form>
+      <p class="note" style="margin-top:12px">Stays signed in on this device for a year. The passphrase is the SYNC_TOKEN secret set on the server.</p>
+    </div>`;
+}
+
+async function signIn() {
+  const err = $('#signin-err');
+  try {
+    await api('login', { method: 'POST', body: JSON.stringify({ token: $('#pass').value }) });
+    state.mode = 'loading'; render();
+    await loadAll();
+    state.mode = 'synced';
+    routeFromHash();
+  } catch (e) {
+    err.textContent = e.message; err.classList.remove('hidden');
+  }
+}
+
+async function signOut() {
+  if (state.pending.size && !confirm('Some changes have not been saved yet. Sign out anyway?')) return;
+  await api('logout', { method: 'POST', body: '{}' }).catch(() => {});
+  state.trips.clear(); state.places.clear(); state.pending.clear();
+  state.mode = 'signin'; location.hash = ''; render();
+}
+
+function listView() {
+  const now = Date.now();
+  const trips = [...state.trips.values()].map(t => ({ t, s: computeSchedule(t) }));
+  const upcoming = trips.filter(x => x.s.takeoff.getTime() >= now).sort((a, b) => a.s.depart - b.s.depart);
+  const past = trips.filter(x => x.s.takeoff.getTime() < now).sort((a, b) => b.s.depart - a.s.depart);
+
+  const card = ({ t, s }, isPast) => `
+    <button class="trip-card ${isPast ? 'past' : ''}" onclick="location.hash='#trip/${t.id}'">
+      <div class="trip-top"><span class="trip-name">${esc(t.name || `Flight from ${t.airport.code}`)}</span><span class="trip-code">${esc(t.airport.code)}</span></div>
+      <div class="trip-meta">${fmtDay(s.takeoff)} · takeoff ${fmtTime(s.takeoff)} · ${esc(t.type)}</div>
+      <div class="trip-leave"><span class="t">${fmtTime(s.depart)}</span><span class="c">leave ${fmtCountdown(s.depart - now)}${isoDate(s.depart) !== isoDate(s.takeoff) ? ` · ${fmtDay(s.depart)}` : ''}</span></div>
+    </button>`;
+
+  const banner = state.mode === 'local' ? `<div class="banner warn">${esc(state.syncError)} Trips are kept only until this page closes. Use <b>Export</b> to keep a copy, or deploy with the sync backend (see README).</div>` : '';
+
+  return `${header('Flight Planner', 'When do I<br>leave home?')}
+    ${banner}
+    <button class="btn primary block" onclick="location.hash='#new'">＋ New trip</button>
+    <div class="list-head"><span class="section-title" style="margin:0">Upcoming</span></div>
+    ${upcoming.length ? upcoming.map(x => card(x, false)).join('') : `<div class="card empty">No upcoming trips.</div>`}
+    ${past.length ? `<div class="list-head"><span class="section-title" style="margin:0">Past</span></div>${past.map(x => card(x, true)).join('')}` : ''}
+    <div class="card" style="margin-top:18px">
+      <div class="section-title">Data</div>
+      <div class="actions">
+        <button class="btn" onclick="exportData()">Export</button>
+        <button class="btn" onclick="$('#import-file').click()">Import</button>
+      </div>
+      <input type="file" id="import-file" accept="application/json,.json" class="hidden" onchange="importData(this.files[0])">
+      ${state.mode === 'synced' ? `<button class="btn ghost block" style="margin-top:10px" onclick="signOut()">Sign out of sync</button>` : ''}
+    </div>
+    <div class="footer">Drive estimates: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a>, OSRM</div>`;
+}
+
+function exportData() {
+  const data = { version: 1, exportedAt: new Date().toISOString(), trips: [...state.trips.values()], places: [...state.places.values()] };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `flight-planner-${isoDate(new Date())}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+async function importData(file) {
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    let n = 0;
+    for (const t of data.trips || []) { if (t && t.id && t.cfg && t.airport) { state.trips.set(t.id, t); queueSave('trip', t); n++; } }
+    for (const p of data.places || []) { if (p && p.id && p.label) { state.places.set(p.id, p); queueSave('place', p); } }
+    toast(`Imported ${n} trip${n === 1 ? '' : 's'}`);
+    render();
+  } catch { toast('That file is not a planner export'); }
+}
+
+/* ───────────── Trip editor ───────────── */
+
+let cur = null; // trip being edited
+
+function segLabel(trip, key) {
+  const seg = SEGMENTS.find(s => s.key === key);
+  if (key === 'drive') return `Drive to ${trip.airport.code}`;
+  const T = STOP_TYPES[trip.stopType];
+  if (key === 'walkToStop') return T.walk1;
+  if (key === 'stop') return T.dwell;
+  if (key === 'walkToGate') return T.walk2;
+  return seg.label;
+}
+function segVisible(trip, key) {
+  return trip.stopType !== 'none' || (key !== 'stop' && key !== 'walkToGate');
+}
+function segMax(trip, key) {
+  const seg = SEGMENTS.find(s => s.key === key);
+  return Math.max(seg.max, Math.ceil(trip.cfg[key] / 30) * 30);
+}
+
+function renderTrip(trip) {
+  if (!trip) { location.hash = ''; return; }
+  cur = trip;
+  const app = $('#app');
+  app.innerHTML = `
+    <button class="back" onclick="location.hash=''">‹ All trips</button>
+    ${header(trip.airport.code + ' departure', esc(trip.name) || 'New trip')}
+
+    <div class="card">
+      <div class="field"><label for="f-name">Trip name</label>
+        <input class="input" id="f-name" placeholder="e.g. Madrid conference" value="${esc(trip.name)}" maxlength="80"></div>
+      <div class="field"><label>Departure airport</label>
+        <button class="picker" onclick="openAirportSheet()">
+          <span class="code">${esc(trip.airport.code)}</span><span class="name">${esc(trip.airport.name)}</span><span class="chev">›</span>
+        </button></div>
+      <div class="row">
+        <div class="field"><label for="f-date">Date</label><input class="input" type="date" id="f-date" value="${trip.date}" required></div>
+        <div class="field"><label for="f-time">Takeoff</label><input class="input" type="time" id="f-time" value="${trip.time}" required></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Drive time <span id="drive-source" class="note"></span></div>
+      <div class="field"><label>Starting from</label>
+        <div id="origin-box"></div></div>
+      <div id="estimate-box"></div>
+    </div>
+
+    <div class="card card-tight">
+      <div class="toggle">
+        <button class="toggle-btn ${trip.type === 'domestic' ? 'active' : ''}" onclick="applyPreset('domestic')">✈ Domestic</button>
+        <button class="toggle-btn ${trip.type === 'international' ? 'active' : ''}" onclick="applyPreset('international')">🌍 International</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Time at the airport</div>
+      <div class="chips" style="margin-bottom:16px">
+        ${Object.entries(STOP_TYPES).map(([k, v]) => `<button class="chip ${trip.stopType === k ? 'active' : ''}" onclick="setStopType('${k}')">${v.name}</button>`).join('')}
+      </div>
+      <div id="segs"></div>
+      <div class="divider"><span class="divider-label">Total lead time</span><span class="divider-value" id="total-time"></span></div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Schedule <button class="link" onclick="copySchedule()">Copy</button></div>
+      <div id="schedule-rows"></div>
+      <div class="depart-highlight">
+        <div><div class="depart-label">Leave home by</div><div class="depart-time" id="depart-time"></div></div>
+        <div class="countdown" id="countdown"></div>
+      </div>
+      <div class="warning hidden" id="warning-box">⚠ You should already be leaving!</div>
+    </div>
+
+    <div class="actions">
+      <button class="btn" onclick="duplicateTrip()">Duplicate</button>
+      <button class="btn danger" onclick="deleteTrip()">Delete</button>
+    </div>`;
+
+  $('#f-name').addEventListener('input', e => { trip.name = e.target.value.trim(); $('.header-title').textContent = trip.name || 'New trip'; save(); });
+  $('#f-date').addEventListener('change', e => { if (e.target.value) { trip.date = e.target.value; save(); } });
+  $('#f-time').addEventListener('change', e => { if (e.target.value) { trip.time = e.target.value; save(); } });
+  $('#f-time').addEventListener('input', e => { if (e.target.value) { trip.time = e.target.value; updateOutputs(); } });
+
+  renderOrigin();
+  renderEstimate();
+  renderSegments();
+  updateOutputs();
+  renderSync();
+}
+
+function save() { updateOutputs(); queueSave('trip', cur); }
+
+function updateOutputs() {
+  const trip = cur, s = computeSchedule(trip);
+  $('#schedule-rows').innerHTML = s.rows.map(r => {
+    const day = isoDate(r.time) !== isoDate(s.takeoff) ? `<small>${fmtDay(r.time)}</small>` : '';
+    return `<div class="schedule-row"><div class="dot" style="background:${r.color}"></div>
+      <span class="time-val" style="color:${r.color}">${fmtTime(r.time)}${day}</span><span class="step-label">${r.label}</span></div>`;
+  }).join('');
+  $('#depart-time').textContent = fmtTime(s.depart);
+  $('#total-time').textContent = fmtMins(s.total);
+  const ms = s.depart - Date.now();
+  $('#countdown').innerHTML = `${fmtDay(s.depart)}<br>${fmtCountdown(ms)}`;
+  const minsUntil = ms / 60000;
+  $('#warning-box').classList.toggle('hidden', !(minsUntil < 30 && minsUntil > -60));
+  $('#drive-source').textContent = trip.driveSource === 'estimate' ? 'from estimate' : 'set manually';
+}
+
+function applyPreset(type) {
+  cur.type = type;
+  Object.assign(cur.cfg, PRESETS[type]); // drive time is location-based, so presets leave it alone
+  renderTrip(cur); save();
+}
+function setStopType(k) { cur.stopType = k; renderTrip(cur); save(); }
+
+function duplicateTrip() {
+  const copy = JSON.parse(JSON.stringify(cur));
+  copy.id = uid(); copy.name = cur.name ? `${cur.name} (copy)` : '';
+  state.trips.set(copy.id, copy); queueSave('trip', copy);
+  location.hash = `#trip/${copy.id}`;
+  toast('Duplicated');
+}
+function deleteTrip() {
+  if (!confirm(`Delete "${cur.name || 'this trip'}"?`)) return;
+  state.trips.delete(cur.id); queueDelete('trip', cur.id);
+  location.hash = '';
+}
+async function copySchedule() {
+  const text = scheduleText(cur);
+  try { await navigator.clipboard.writeText(text); toast('Schedule copied'); }
+  catch { prompt('Copy the schedule:', text); }
+}
+
+/* ───────────── Segment bars ───────────── */
+
+function renderSegments() {
+  const trip = cur;
+  $('#segs').innerHTML = SEGMENTS.filter(s => segVisible(trip, s.key)).map(s => `
+    <div class="seg" data-key="${s.key}">
+      <div class="seg-head">
+        <span class="seg-label" id="lbl-${s.key}">${esc(segLabel(trip, s.key))}</span>
+        <button class="seg-val" aria-label="Type exact minutes"></button>
+      </div>
+      <div class="seg-ctl">
+        <button class="step" data-d="-1" aria-label="Decrease ${esc(segLabel(trip, s.key))}">−</button>
+        <div class="bar" role="slider" tabindex="0" aria-labelledby="lbl-${s.key}" aria-valuemin="0">
+          <div class="bar-bg"></div><div class="bar-fill"></div><div class="bar-thumb"></div>
+        </div>
+        <button class="step" data-d="1" aria-label="Increase ${esc(segLabel(trip, s.key))}">+</button>
+      </div>
+    </div>`).join('');
+  document.querySelectorAll('.seg').forEach(wireSegment);
+}
+
+function setSeg(key, value, commit = true) {
+  const max = segMax(cur, key);
+  cur.cfg[key] = clamp(Math.round(value), 0, Math.max(max, value));
+  if (key === 'drive') cur.driveSource = 'manual';
+  paintSeg(document.querySelector(`.seg[data-key="${key}"]`));
+  if (key === 'drive') renderEstimate();
+  if (commit) save(); else updateOutputs();
+}
+
+function paintSeg(el) {
+  const key = el.dataset.key, v = cur.cfg[key], max = segMax(cur, key);
+  const pct = (v / max) * 100;
+  el.querySelector('.bar-fill').style.width = `${pct}%`;
+  el.querySelector('.bar-thumb').style.left = `${pct}%`;
+  const val = el.querySelector('.seg-val');
+  val.textContent = fmtMins(v);
+  val.classList.toggle('zero', v === 0);
+  const bar = el.querySelector('.bar');
+  bar.setAttribute('aria-valuemax', max);
+  bar.setAttribute('aria-valuenow', v);
+  bar.setAttribute('aria-valuetext', fmtMins(v));
+}
+
+function wireSegment(el) {
+  const key = el.dataset.key;
+  const bar = el.querySelector('.bar');
+  paintSeg(el);
+
+  // Bar: tap to jump, horizontal drag to scrub. Vertical swipes scroll the page without changing the value.
+  const valueAt = x => {
+    const r = bar.getBoundingClientRect();
+    const raw = ((x - r.left) / r.width) * segMax(cur, key);
+    return clamp(Math.round(raw / STEP) * STEP, 0, segMax(cur, key));
+  };
+  let drag = null;
+  bar.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, active: e.pointerType === 'mouse' };
+    bar.setPointerCapture(e.pointerId);
+    if (drag.active) { bar.classList.add('dragging'); setSeg(key, valueAt(e.clientX), false); }
+  });
+  bar.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = Math.abs(e.clientX - drag.x), dy = Math.abs(e.clientY - drag.y);
+    if (!drag.active && dx > 6 && dx > dy) { drag.active = true; bar.classList.add('dragging'); }
+    if (drag.active) { e.preventDefault(); setSeg(key, valueAt(e.clientX), false); }
+  });
+  const end = (e, cancelled) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const moved = Math.hypot(e.clientX - drag.x, e.clientY - drag.y);
+    if (!cancelled && !drag.active && moved < 10) setSeg(key, valueAt(e.clientX));
+    else if (drag.active) save();
+    bar.classList.remove('dragging');
+    drag = null;
+  };
+  bar.addEventListener('pointerup', e => end(e, false));
+  bar.addEventListener('pointercancel', e => end(e, true));
+  bar.addEventListener('keydown', e => {
+    const v = cur.cfg[key], max = segMax(cur, key);
+    const next = { ArrowLeft: v - STEP, ArrowDown: v - STEP, ArrowRight: v + STEP, ArrowUp: v + STEP,
+                   PageDown: v - 30, PageUp: v + 30, Home: 0, End: max }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    setSeg(key, clamp(next, 0, max));
+  });
+
+  // −/+ buttons: tap for one step, hold to repeat.
+  el.querySelectorAll('.step').forEach(btn => {
+    const dir = Number(btn.dataset.d);
+    const bump = () => {
+      const v = cur.cfg[key];
+      const next = dir > 0 ? Math.floor(v / STEP) * STEP + STEP : Math.ceil(v / STEP) * STEP - STEP;
+      setSeg(key, clamp(next, 0, segMax(cur, key) + (dir > 0 && key === 'drive' ? STEP : 0)), false);
+    };
+    let timer = null;
+    const stop = () => { if (timer) { clearTimeout(timer); timer = null; save(); } };
+    btn.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      bump();
+      const repeat = delay => { timer = setTimeout(() => { bump(); repeat(Math.max(60, delay * 0.85)); }, delay); };
+      repeat(400);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => btn.addEventListener(t, stop));
+    btn.addEventListener('click', e => { if (e.detail === 0) { bump(); save(); } }); // keyboard activation
+    btn.addEventListener('contextmenu', e => e.preventDefault());
+  });
+
+  // Value: tap to type an exact number of minutes.
+  el.querySelector('.seg-val').addEventListener('click', e => {
+    const btn = e.currentTarget;
+    const input = document.createElement('input');
+    input.className = 'seg-edit'; input.type = 'number'; input.inputMode = 'numeric';
+    input.min = 0; input.max = 600; input.value = cur.cfg[key];
+    btn.replaceWith(input); input.focus(); input.select();
+    let done = false;
+    const commit = ok => {
+      if (done) return; done = true;
+      const n = parseInt(input.value, 10);
+      input.replaceWith(btn);
+      if (ok && Number.isFinite(n)) setSeg(key, clamp(n, 0, 600)); else paintSeg(el);
+    };
+    input.addEventListener('keydown', ev => { if (ev.key === 'Enter') commit(true); if (ev.key === 'Escape') commit(false); });
+    input.addEventListener('blur', () => commit(true));
+  });
+}
+
+/* ───────────── Origin & drive estimate ───────────── */
+
+function renderOrigin(results, status) {
+  const trip = cur;
+  const places = [...state.places.values()].sort((a, b) => a.label.localeCompare(b.label));
+  const o = trip.origin;
+  const savedMatch = o && places.find(p => p.lat === o.lat && p.lon === o.lon);
+  $('#origin-box').innerHTML = `
+    ${o ? `<div class="picker" style="cursor:default"><span class="name" style="color:var(--text)">📍 ${esc(o.name ? o.name + ' — ' : '')}${esc(o.label)}</span>
+            ${savedMatch ? '' : `<button class="link" onclick="savePlace()">Save</button>`}</div>` : ''}
+    ${places.length ? `<div class="chips" style="margin-top:10px">${places.map(p =>
+        `<span style="display:inline-flex"><button class="chip ${savedMatch && savedMatch.id === p.id ? 'active' : ''}" onclick="useSavedPlace('${p.id}')">${esc(p.name)}</button></span>`).join('')}
+        <button class="chip" onclick="managePlaces()">Edit…</button></div>` : ''}
+    <form class="row" style="margin-top:10px" onsubmit="event.preventDefault();searchAddress()">
+      <input class="input" id="addr" placeholder="Search an address" autocomplete="street-address" enterkeyhint="search">
+      <button class="btn" style="flex:0 0 auto">Find</button>
+    </form>
+    <button class="btn block" style="margin-top:10px" onclick="useCurrentLocation()">◎ Use current location</button>
+    ${status ? `<p class="note ${status.err ? 'err' : ''}" style="margin-top:10px">${esc(status.text)}</p>` : ''}
+    ${results ? `<div class="results">${results.length ? results.map((r, i) =>
+        `<button class="result" onclick="pickAddress(${i})">${esc(shortAddress(r))}<br><small>${esc(r.display_name)}</small></button>`).join('')
+        : `<div class="result">No matches. Include city and state.</div>`}</div>` : ''}`;
+  renderOrigin.results = results;
+}
+
+async function searchAddress() {
+  const q = $('#addr').value.trim();
+  if (!q) return;
+  renderOrigin(null, { text: 'Searching…' });
+  try {
+    const r = await getJSON(`${GEOCODER}/search?format=jsonv2&addressdetails=1&limit=5&q=${encodeURIComponent(q)}`);
+    renderOrigin(r);
+  } catch { renderOrigin(null, { text: 'Address search failed. Check the connection and try again.', err: true }); }
+}
+
+function pickAddress(i) {
+  const r = renderOrigin.results[i];
+  setOrigin({ label: shortAddress(r), lat: +(+r.lat).toFixed(5), lon: +(+r.lon).toFixed(5) });
+}
+
+function useCurrentLocation() {
+  if (!navigator.geolocation) { renderOrigin(null, { text: 'This browser does not provide location.', err: true }); return; }
+  renderOrigin(null, { text: 'Getting your location…' });
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const lat = +pos.coords.latitude.toFixed(5), lon = +pos.coords.longitude.toFixed(5);
+    let label = `${lat}, ${lon}`;
+    try {
+      const r = await getJSON(`${GEOCODER}/reverse?format=jsonv2&addressdetails=1&zoom=17&lat=${lat}&lon=${lon}`);
+      if (r && !r.error) label = shortAddress(r);
+    } catch { /* coordinates are enough */ }
+    setOrigin({ label, lat, lon });
+  }, err => {
+    const msg = err.code === 1 ? 'Location permission denied. Allow location for this site, or search an address.' : 'Could not get your location. Search an address instead.';
+    renderOrigin(null, { text: msg, err: true });
+  }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 });
+}
+
+function useSavedPlace(id) {
+  const p = state.places.get(id);
+  if (p) setOrigin({ label: p.label, name: p.name, lat: p.lat, lon: p.lon });
+}
+
+function setOrigin(o) {
+  cur.origin = o;
+  renderOrigin();
+  save();
+  estimateDrive(true);
+}
+
+function savePlace() {
+  const o = cur.origin;
+  const name = prompt('Name this place (e.g. Home, Office):', o.name || 'Home');
+  if (!name) return;
+  const p = { id: uid(), name: name.trim().slice(0, 40), label: o.label, lat: o.lat, lon: o.lon };
+  state.places.set(p.id, p); queueSave('place', p);
+  cur.origin = { ...o, name: p.name }; save();
+  renderOrigin();
+}
+
+function managePlaces() {
+  const places = [...state.places.values()];
+  openSheet('Saved places', `
+    ${places.map(p => `<div class="schedule-row"><span class="step-label"><b style="color:var(--text)">${esc(p.name)}</b><br>${esc(p.label)}</span>
+      <button class="btn danger" onclick="deletePlace('${p.id}')">Delete</button></div>`).join('') || '<p class="note">No saved places.</p>'}`);
+}
+function deletePlace(id) {
+  state.places.delete(id); queueDelete('place', id);
+  managePlaces(); renderOrigin();
+}
+
+let estimateSeq = 0;
+async function estimateDrive(apply) {
+  const trip = cur, o = trip.origin, a = trip.airport;
+  if (!o) return;
+  const seq = ++estimateSeq;
+  renderEstimate({ loading: true });
+  try {
+    const r = await getJSON(`${ROUTER}/${o.lon},${o.lat};${a.lon},${a.lat}?overview=false&alternatives=false`);
+    if (seq !== estimateSeq || cur !== trip) return;
+    if (r.code !== 'Ok' || !r.routes?.length) throw new Error(r.message || 'No route');
+    trip.estimate = {
+      baseMins: Math.round(r.routes[0].duration / 60),
+      km: Math.round(r.routes[0].distance / 1000),
+      airportCode: a.code, originLabel: o.label, at: Date.now(),
+    };
+    if (apply || trip.driveSource === 'estimate') applyEstimate();
+    else { renderEstimate(); save(); }
+  } catch (e) {
+    if (seq !== estimateSeq) return;
+    renderEstimate({ error: 'No driving route found, or the routing service is unreachable. Set the drive time manually.' });
+  }
+}
+
+function paddedMins(trip) {
+  const raw = trip.estimate.baseMins * (1 + trip.trafficPad / 100);
+  return Math.ceil(raw / STEP) * STEP;
+}
+
+function applyEstimate() {
+  cur.cfg.drive = paddedMins(cur);
+  cur.driveSource = 'estimate';
+  const el = document.querySelector('.seg[data-key="drive"]');
+  if (el) paintSeg(el);
+  renderEstimate(); save();
+}
+
+function setPad(p) {
+  cur.trafficPad = p;
+  if (cur.estimate) applyEstimate(); else { renderEstimate(); save(); }
+}
+
+function renderEstimate(st = {}) {
+  const trip = cur, e = trip.estimate, box = $('#estimate-box');
+  if (!box) return;
+  const stale = e && (e.airportCode !== trip.airport.code || !trip.origin || e.originLabel !== trip.origin.label);
+  if (!trip.origin) { box.innerHTML = `<p class="note" style="margin-top:12px">Pick a starting point to estimate the drive, or set the drive bar below by hand.</p>`; return; }
+  if (st.loading) { box.innerHTML = `<div class="estimate note">Estimating route to ${esc(trip.airport.code)}…</div>`; return; }
+  if (st.error) { box.innerHTML = `<div class="estimate note err">${esc(st.error)} <button class="link" onclick="estimateDrive(true)">Retry</button></div>`; return; }
+  if (!e || stale) { box.innerHTML = `<button class="btn primary block" style="margin-top:12px" onclick="estimateDrive(true)">Estimate drive to ${esc(trip.airport.code)}</button>`; return; }
+  const padded = paddedMins(trip);
+  box.innerHTML = `
+    <div class="estimate">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <span class="big">${fmtMins(padded)}</span>
+        <span class="note">${fmtMins(e.baseMins)} no traffic · ${Math.round(e.km * 0.621)} mi</span>
+      </div>
+      <div class="note" style="margin:10px 0 6px">Traffic padding</div>
+      <div class="chips">${TRAFFIC_PADS.map(p => `<button class="chip ${trip.trafficPad === p ? 'active' : ''}" onclick="setPad(${p})">+${p}%</button>`).join('')}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+        ${trip.driveSource === 'estimate' && trip.cfg.drive === padded
+          ? `<span class="note">Applied to drive bar</span>`
+          : `<button class="link" onclick="applyEstimate()">Use ${fmtMins(padded)} for the drive bar</button>`}
+        <button class="link" onclick="estimateDrive(false)">Refresh</button>
+      </div>
+    </div>`;
+}
+
+/* ───────────── Airport picker ───────────── */
+
+function openAirportSheet() {
+  openSheet('Departure airport', `
+    <input class="input" id="ap-q" placeholder="Code, city, or name" autocomplete="off" autocapitalize="characters" enterkeyhint="search">
+    <div class="results" id="ap-results"></div>
+    <button class="btn block" style="margin-top:12px" onclick="searchAirportsWorldwide()">Search all airports for “<span id="ap-echo"></span>”</button>
+    <p class="note" id="ap-status" style="margin-top:8px"></p>`);
+  const q = $('#ap-q');
+  const draw = () => {
+    const s = q.value.trim().toLowerCase();
+    $('#ap-echo').textContent = q.value.trim();
+    const list = !s ? AIRPORTS : AIRPORTS.filter(a => a.code.toLowerCase().startsWith(s) || a.city.toLowerCase().includes(s) || a.name.toLowerCase().includes(s));
+    $('#ap-results').innerHTML = list.length ? list.map(a =>
+      `<button class="result" onclick="pickAirport('${a.code}')"><span class="code">${a.code}</span>${esc(a.name)}<br><small>${esc(a.city)}</small></button>`).join('')
+      : `<div class="result note">Not in the built-in list. Search all airports below.</div>`;
+  };
+  q.addEventListener('input', draw);
+  q.addEventListener('keydown', e => { if (e.key === 'Enter') { const first = $('#ap-results .result[onclick]'); first ? first.click() : searchAirportsWorldwide(); } });
+  draw();
+  setTimeout(() => q.focus(), 50);
+}
+
+function pickAirport(code) {
+  const a = AIRPORTS.find(x => x.code === code);
+  setAirport({ code: a.code, name: a.name, lat: a.lat, lon: a.lon });
+}
+
+async function searchAirportsWorldwide() {
+  const text = $('#ap-q').value.trim();
+  if (!text) return;
+  $('#ap-status').textContent = 'Searching…';
+  try {
+    const q = /airport|international|intl|field/i.test(text) ? text : `${text} airport`;
+    const r = await getJSON(`${GEOCODER}/search?format=jsonv2&extratags=1&namedetails=1&limit=10&q=${encodeURIComponent(q)}`);
+    const found = r.filter(x => x.category === 'aeroway' || x.type === 'aerodrome');
+    searchAirportsWorldwide.found = found;
+    $('#ap-status').textContent = found.length ? '' : 'No airports found. Try the city name or IATA code.';
+    $('#ap-results').innerHTML = found.map((x, i) => {
+      const code = (x.extratags?.iata || x.extratags?.icao || '').toUpperCase();
+      return `<button class="result" onclick="pickFoundAirport(${i})"><span class="code">${esc(code || '—')}</span>${esc(x.namedetails?.name || x.name)}<br><small>${esc(x.display_name)}</small></button>`;
+    }).join('');
+  } catch { $('#ap-status').textContent = 'Search failed. Check the connection and try again.'; }
+}
+
+function pickFoundAirport(i) {
+  const x = searchAirportsWorldwide.found[i];
+  const name = x.namedetails?.name || x.name;
+  const code = (x.extratags?.iata || x.extratags?.icao || name.replace(/[^A-Za-z]/g, '').slice(0, 3)).toUpperCase();
+  setAirport({ code, name, lat: +(+x.lat).toFixed(5), lon: +(+x.lon).toFixed(5) });
+}
+
+function setAirport(a) {
+  cur.airport = a;
+  closeSheet();
+  renderTrip(cur);
+  save();
+  if (cur.origin) estimateDrive(cur.driveSource === 'estimate' || !cur.estimate);
+}
+
+/* ───────────── Sheet ───────────── */
+
+function openSheet(title, body) {
+  $('#sheet-root').innerHTML = `<div class="sheet-backdrop" onclick="if(event.target===this)closeSheet()">
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+      <div class="sheet-head"><span class="sheet-title">${esc(title)}</span><button class="link" style="font-size:15px" onclick="closeSheet()">Done</button></div>
+      ${body}</div></div>`;
+}
+function closeSheet() { $('#sheet-root').innerHTML = ''; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+
+// Refresh countdowns once a minute.
+setInterval(() => {
+  if (state.mode === 'loading' || state.mode === 'signin') return;
+  if (state.view.name === 'list') { $('#app').innerHTML = listView(); renderSync(); }
+  else if (cur && $('#depart-time')) updateOutputs();
+}, 60000);
+
+render();
+boot();
+</script>
+</body>
+</html>
