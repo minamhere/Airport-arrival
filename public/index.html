@@ -55,7 +55,6 @@
 
     /* Cards */
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 14px; }
-    .card-tight { padding: 6px; }
     .section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
     .note { font-size: 12px; color: var(--muted); line-height: 1.5; }
     .note.err { color: var(--orange); }
@@ -89,13 +88,6 @@
     .btn:disabled { opacity: 0.5; cursor: default; }
     .link { background: none; border: none; color: var(--cyan); font-size: 12px; font-weight: 600; padding: 4px 0; }
 
-    .toggle { display: flex; gap: 4px; }
-    .toggle-btn {
-      flex: 1; min-height: 40px; border: none; font-size: 13px; font-weight: 600; letter-spacing: 0.04em;
-      border-radius: 6px; background: transparent; color: #6a80a0; transition: all 0.2s;
-    }
-    .toggle-btn.active { background: var(--cyan); color: var(--bg); }
-
     .chips { display: flex; flex-wrap: wrap; gap: 8px; }
     .chip {
       min-height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid var(--border);
@@ -120,6 +112,11 @@
     .trip-details .flight-when .field { margin-bottom: 0; }
     .trip-details .flight-when .date-field { flex: 0 0 136px; }
     .trip-details .flight-when + .flight-when { margin-top: 10px; }
+    .trip-name-label { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-height: 32px; margin-bottom: 6px; }
+    .trip-name-label > label { margin-bottom: 0; }
+    .field label.international-check { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; min-height: 32px; margin: 0; font-size: 11px; white-space: nowrap; cursor: pointer; }
+    .international-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--cyan); }
+    .trip-details .date-field > label { display: flex; align-items: center; min-height: 32px; }
     .origin-section { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; }
     .route-summary { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; }
     .route-address { min-width: 0; }
@@ -731,7 +728,10 @@ function renderTrip(trip) {
 
     <div class="card trip-details">
       <div class="row flight-when">
-        <div class="field"><label for="f-name">Trip name</label>
+        <div class="field"><div class="trip-name-label"><label for="f-name">Trip name</label>
+          <label class="international-check" title="International trip; unchecked means domestic">
+            <input type="checkbox" id="f-international" aria-label="International trip" ${trip.type === 'international' ? 'checked' : ''} onchange="applyPreset(this.checked ? 'international' : 'domestic')">Intl.
+          </label></div>
           <input class="input" id="f-name" placeholder="Optional" value="${esc(trip.name)}" maxlength="80"></div>
         <div class="field date-field"><label for="f-date">Date</label><input class="input" type="date" id="f-date" value="${trip.date}" required></div>
       </div>
@@ -744,13 +744,6 @@ function renderTrip(trip) {
       </div>
       <div class="origin-section" id="origin-box"></div>
       <div id="estimate-box" aria-live="polite"></div>
-    </div>
-
-    <div class="card card-tight">
-      <div class="toggle">
-        <button class="toggle-btn ${trip.type === 'domestic' ? 'active' : ''}" onclick="applyPreset('domestic')">✈ Domestic</button>
-        <button class="toggle-btn ${trip.type === 'international' ? 'active' : ''}" onclick="applyPreset('international')">🌍 International</button>
-      </div>
     </div>
 
     <div class="card">
@@ -809,9 +802,11 @@ function updateOutputs() {
 }
 
 function applyPreset(type) {
+  const restoreFocus = document.activeElement?.id === 'f-international';
   cur.type = type;
   Object.assign(cur.cfg, PRESETS[type]); // drive time is location-based, so presets leave it alone
   renderTrip(cur); save();
+  if (restoreFocus) $('#f-international').focus();
 }
 function setStopType(k) { cur.stopType = k; renderTrip(cur); save(); }
 

@@ -17,7 +17,7 @@ wrangler.toml                Pages + D1 binding config
 - **Starting address and drive estimate**: a compact row shows the selected address and drive minutes. Search/Change opens an address panel with a current-location button inside the search field; picking an address closes it. Online results prefer the airport area and are sorted by distance to the airport, while addresses farther away remain searchable. Saved places filter locally as you type. Routing comes from the public OSRM server, which has no live traffic data. Estimates are rounded up to 5 minutes, with no automatic traffic buffer. Add extra time with the drive bar as needed. The address panel also lets you refresh or re-apply the route estimate.
 - **Bars**: every segment goes to 0. Each bar has −/+ buttons (hold to repeat), tap-to-jump and horizontal drag on the track (vertical swipes still scroll the page), and tapping the value lets you type an exact number of minutes.
 - **Airport stop**: Lounge or Straight to gate. Straight to gate hides the dwell time and second walk.
-- **Presets**: Domestic and International set every segment except the drive, which depends on location.
+- **Presets**: the compact **Intl.** checkbox beside the trip name selects International; unchecked means Domestic and is the default for new trips. Switching it sets every segment except the drive, which depends on location.
 - **Trips**: list of upcoming and past trips with leave-by times and countdowns; duplicate, delete, and copy the schedule as text. Each trip has a date, so overnight schedules show the correct day.
 - **Sync**: trips and saved places are stored in Cloudflare D1 and are available on any browser signed in with the passphrase. Export and Import (JSON) serve as backup.
 
