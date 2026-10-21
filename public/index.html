@@ -118,7 +118,7 @@
     .route-label { display: block; font-size: 13px; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .route-duration { text-align: right; }
     #route-minutes { display: block; color: var(--cyan); font: 600 18px var(--mono); }
-    #drive-source { display: block; font-size: 11px; }
+    .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
     .route-summary .btn { padding: 0 10px; }
     .address-entry { display: flex; flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
     .address-entry:focus-within { border-color: var(--cyan); }
@@ -827,7 +827,6 @@ function updateOutputs() {
   $('#countdown').innerHTML = `${fmtDay(s.depart)}<br>${fmtCountdown(ms)}`;
   const minsUntil = ms / 60000;
   $('#warning-box').classList.toggle('hidden', !(minsUntil < 30 && minsUntil > -60));
-  $('#drive-source').textContent = trip.driveSource === 'estimate' ? 'estimated' : 'manual';
   $('#route-minutes').textContent = fmtMins(trip.cfg.drive);
 }
 
@@ -1151,8 +1150,7 @@ function renderOrigin() {
     <div class="route-summary">
       <div class="route-address"><span class="note">Starting address</span>
         <span class="route-label">${o ? esc(o.name ? `${o.name} · ${o.label}` : o.label) : 'Choose starting point'}</span></div>
-      <div class="route-duration"><span class="note">Drive</span><span id="route-minutes">${fmtMins(cur.cfg.drive)}</span>
-        <span class="note" id="drive-source">${cur.driveSource === 'estimate' ? 'estimated' : 'manual'}</span></div>
+      <div class="route-duration"><span class="visually-hidden">Drive time: </span><span id="route-minutes">${fmtMins(cur.cfg.drive)}</span></div>
       <button class="btn" aria-label="${o ? 'Change' : 'Search for'} starting address" onclick="openOriginSheet()">${o ? 'Change' : 'Search'}</button>
     </div>`;
   if (isReturnTarget) sheetReturnFocus = box.querySelector('button');
