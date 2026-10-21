@@ -103,15 +103,6 @@
     .picker .name { font-size: 13px; color: var(--muted); line-height: 1.3; flex: 1; }
     .picker .chev { color: var(--dim); }
 
-    /* Compact trip setup: keep the main inputs together on a phone. */
-    .trip-details { padding: 14px; }
-    .trip-details .field { margin-bottom: 10px; }
-    .trip-details .input { padding: 9px 10px; min-width: 0; }
-    .trip-details .picker { min-height: 44px; padding: 8px 10px; gap: 8px; }
-    .trip-details .picker .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .trip-details .flight-when .field { margin-bottom: 0; }
-    .trip-details .flight-when .date-field { flex: 0 0 136px; }
-    .trip-details .flight-when + .flight-when { margin-top: 10px; }
     .origin-section { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; }
     .route-summary { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; }
     .route-address { min-width: 0; }
@@ -169,15 +160,9 @@
 
     /* Reduce whitespace around the controls, preserving their full touch areas. */
     .timing-card { padding: 14px; }
-    .trip-options { margin-bottom: 8px; }
-    .trip-options summary { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; list-style: none; }
-    .trip-options summary::-webkit-details-marker { display: none; }
-    .trip-options summary::after { content: '›'; color: var(--dim); font-size: 20px; flex: 0 0 auto; }
-    .trip-options[open] summary::after { transform: rotate(90deg); }
-    .trip-options summary:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; border-radius: 4px; }
     .options-title { font-size: 12px; color: var(--muted); flex: 0 0 auto; }
     .options-summary { margin-left: auto; font-size: 11px; color: var(--muted); line-height: 1.4; text-align: right; }
-    .trip-options-content { padding: 4px 0 10px; border-bottom: 1px solid var(--border); }
+    .trip-options-content { padding: 4px 0 10px; }
     .trip-options-content label { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 13px; color: var(--muted); cursor: pointer; }
     .trip-options-content input { width: 18px; height: 18px; margin: 0; accent-color: var(--cyan); }
     .stop-options { border: 0; padding: 0; margin-top: 4px; min-width: 0; }
@@ -210,6 +195,33 @@
     .depart-time { font-family: var(--mono); font-size: 30px; font-weight: 700; color: var(--red); }
     .countdown { font-size: 12px; color: var(--muted); text-align: right; }
     .warning { margin-top: 12px; padding: 10px 14px; background: #1a0a0a; border: 1px solid #ff4d6d60; border-radius: 8px; color: var(--red); font-size: 13px; font-weight: 600; }
+
+    .trip-toolbar, .trip-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .trip-toolbar .back { min-height: 44px; margin: 0; }
+    .trip-heading { margin-bottom: 12px; }
+    .trip-heading .header-title { font-size: 22px; overflow-wrap: anywhere; min-width: 0; }
+    .trip-heading .action-menu { flex-shrink: 0; }
+    .overview-card, .schedule-card { padding: 14px; margin-bottom: 10px; }
+    .overview-card .depart-highlight { background: none; border: 0; padding: 0; margin: 0 0 12px; }
+    .flight-summary { display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+    .flight-code { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--cyan); }
+    .flight-meta { flex: 1; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+    .flight-summary .link { min-width: 44px; min-height: 44px; }
+    .schedule-card .section-title { margin-bottom: 0; }
+    .schedule-card .schedule-row { padding: 9px 0; }
+    .schedule-day { font-size: 11px; color: var(--cyan); padding-top: 12px; font-weight: 600; }
+    .disclosure-card { padding: 0 14px; margin-bottom: 10px; }
+    .disclosure-card > summary { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; list-style: none; }
+    .disclosure-card > summary::-webkit-details-marker { display: none; }
+    .disclosure-card > summary::after { content: '›'; color: var(--dim); font-size: 20px; flex: 0 0 auto; }
+    .disclosure-card[open] > summary::after { transform: rotate(90deg); }
+    .disclosure-card > summary:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; border-radius: 4px; }
+    .disclosure-card #segs { padding-bottom: 12px; }
+    .export-menu .link { min-height: 44px; }
+    .export-menu .danger-text { color: var(--red); }
+    .trip-editor .input { min-width: 0; }
+    .past-trips > summary { color: var(--muted); font-size: 13px; }
+    .past-trips .trip-card:last-child { margin-bottom: 14px; }
 
     /* Trip list */
     .trip-card { display: block; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
@@ -480,9 +492,23 @@ function scheduleText(trip) {
   const lines = [`${trip.name || 'Trip'} — ${trip.airport.code}, ${fmtDay(s.takeoff)}`];
   for (const r of [...s.rows].reverse()) {
     const day = isoDate(r.time) !== isoDate(s.takeoff) ? ` (${fmtDay(r.time)})` : '';
-    lines.push(`${fmtTime(r.time).padStart(8)}${day}  ${r.label.replace(/^\S+\s/, '')}`);
+    lines.push(`${fmtTime(r.time).padStart(8)}${day}  ${plainStepLabel(r.label)}`);
   }
   return lines.join('\n');
+}
+
+function plainStepLabel(label) { return label.replace(/^\S+\s/, ''); }
+
+function groupTimelineRows(rows) {
+  const groups = [];
+  for (const row of rows) {
+    let group = groups.at(-1);
+    if (!group || isoDate(group.date) !== isoDate(row.time)) {
+      group = { date: row.time, rows: [] }; groups.push(group);
+    }
+    group.rows.push(row);
+  }
+  return groups;
 }
 
 /* ───────────── Sync ───────────── */
@@ -593,12 +619,14 @@ function renderSync() {
 /* ───────────── Routing ───────────── */
 
 function routeFromHash() {
+  const creating = location.hash === '#new';
   const m = location.hash.match(/^#trip\/([A-Za-z0-9_-]+)$/);
   if (m && state.trips.has(m[1])) state.view = { name: 'trip', id: m[1] };
   else if (location.hash === '#new') { const t = newTrip(); state.trips.set(t.id, t); queueSave('trip', t); history.replaceState(null, '', `#trip/${t.id}`); state.view = { name: 'trip', id: t.id }; }
   else state.view = { name: 'list' };
   render();
   window.scrollTo(0, 0);
+  if (creating && state.view.name === 'trip') openTripEditor();
 }
 window.addEventListener('hashchange', () => { if (state.mode !== 'loading' && state.mode !== 'signin') routeFromHash(); });
 
@@ -668,23 +696,22 @@ function listView() {
       <div class="trip-leave"><span class="t">${fmtTime(s.depart)}</span><span class="c">leave ${fmtCountdown(s.depart - now)}${isoDate(s.depart) !== isoDate(s.takeoff) ? ` · ${fmtDay(s.depart)}` : ''}</span></div>
     </button>`;
 
-  const banner = state.mode === 'local' ? `<div class="banner warn">${esc(state.syncError)} Trips are kept only until this page closes. Use <b>Export</b> to keep a copy, or deploy with the sync backend (see README).</div>` : '';
-
-  return `${header('Flight Planner', 'When do I<br>leave home?')}
+  const banner = state.mode === 'local' ? `<div class="banner warn">Trips are temporary on this device. Use Export data in the menu to keep a copy.</div>` : '';
+  const pastOpen = !!$('#past-trips')?.open;
+  return `<div class="trip-heading"><h1 class="header-title">Trips</h1><div class="sync" id="sync"></div>
+      <details class="schedule-options action-menu" id="data-options">
+        <summary aria-label="Trip data options">⋯</summary><div class="export-menu">
+          <button class="link" onclick="closeMenu('data-options');exportData()">Export data</button>
+          <button class="link" onclick="closeMenu('data-options');$('#import-file').click()">Import data</button>
+          ${state.mode === 'synced' ? `<button class="link" onclick="closeMenu('data-options');signOut()">Sign out</button>` : ''}
+        </div>
+      </details></div>
     ${banner}
+    <input type="file" id="import-file" accept="application/json,.json" class="hidden" onchange="importData(this.files[0])">
     <button class="btn primary block" onclick="location.hash='#new'">＋ New trip</button>
     <div class="list-head"><span class="section-title" style="margin:0">Upcoming</span></div>
     ${upcoming.length ? upcoming.map(x => card(x, false)).join('') : `<div class="card empty">No upcoming trips.</div>`}
-    ${past.length ? `<div class="list-head"><span class="section-title" style="margin:0">Past</span></div>${past.map(x => card(x, true)).join('')}` : ''}
-    <div class="card" style="margin-top:18px">
-      <div class="section-title">Data</div>
-      <div class="actions">
-        <button class="btn" onclick="exportData()">Export</button>
-        <button class="btn" onclick="$('#import-file').click()">Import</button>
-      </div>
-      <input type="file" id="import-file" accept="application/json,.json" class="hidden" onchange="importData(this.files[0])">
-      ${state.mode === 'synced' ? `<button class="btn ghost block" style="margin-top:10px" onclick="signOut()">Sign out of sync</button>` : ''}
-    </div>
+    ${past.length ? `<details class="card disclosure-card past-trips" id="past-trips" ${pastOpen ? 'open' : ''}><summary>Past trips (${past.length})</summary>${past.map(x => card(x, true)).join('')}</details>` : ''}
     <div class="footer">Drive estimates: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a>, OSRM</div>`;
 }
 
@@ -717,11 +744,8 @@ let cur = null; // trip being edited
 function segLabel(trip, key) {
   const seg = SEGMENTS.find(s => s.key === key);
   if (key === 'drive') return `Drive to ${trip.airport.code}`;
-  const T = STOP_TYPES[trip.stopType] || STOP_TYPES.lounge;
-  if (key === 'walkToStop') return T.walk1;
-  if (key === 'stop') return T.dwell;
-  if (key === 'walkToGate') return T.walk2;
-  return seg.label;
+  if (key === 'walkToStop') return trip.stopType === 'none' ? 'Walk to gate' : 'Walk to lounge';
+  return ({ parking: 'Parking + shuttle', security: 'Security', stop: 'Lounge', walkToGate: 'Walk to gate', preBoard: 'Boarding buffer' })[key] || seg.label;
 }
 function segVisible(trip, key) {
   return trip.stopType !== 'none' || (key !== 'stop' && key !== 'walkToGate');
@@ -735,50 +759,45 @@ function renderTrip(trip) {
   if (!trip) { location.hash = ''; return; }
   scheduleExportSeq++;
   if (trip.stopType === 'dining') trip.stopType = 'lounge';
-  const optionsOpen = cur?.id === trip.id && !!$('#trip-options')?.open;
+  const sameTrip = cur?.id === trip.id;
+  const optionsOpen = sameTrip && !!$('#trip-options')?.open;
+  const timingsOpen = sameTrip && !!$('#timing-adjustments')?.open;
   cur = trip;
-  const app = $('#app');
-  app.innerHTML = `
-    <button class="back" onclick="location.hash=''">‹ All trips</button>
-    ${header(trip.airport.code + ' departure', esc(trip.name) || 'New trip')}
+  $('#app').innerHTML = `
+    <div class="trip-toolbar"><button class="back" onclick="location.hash=''">‹ All trips</button><div class="sync" id="sync"></div></div>
+    <div class="trip-heading">
+      <h1 class="header-title" id="trip-title">${esc(trip.name || `${trip.airport.code} departure`)}</h1>
+      <details class="schedule-options action-menu" id="trip-menu">
+        <summary aria-label="Trip actions">⋯</summary>
+        <div class="export-menu">
+          <button class="link" onclick="closeMenu('trip-menu');openTripEditor()">Edit trip</button>
+          <button class="link" onclick="closeMenu('trip-menu');openTripEditor(true)">Rename trip</button>
+          <button class="link" onclick="closeMenu('trip-menu');duplicateTrip()">Duplicate trip</button>
+          <button class="link danger-text" onclick="closeMenu('trip-menu');deleteTrip()">Delete trip</button>
+        </div>
+      </details>
+    </div>
 
-    <div class="card trip-details">
-      <div class="row flight-when">
-        <div class="field"><label for="f-name">Trip name</label>
-          <input class="input" id="f-name" placeholder="Optional" value="${esc(trip.name)}" maxlength="80"></div>
-        <div class="field date-field"><label for="f-date">Date</label><input class="input" type="date" id="f-date" value="${trip.date}" required></div>
+    <div class="card overview-card">
+      <div class="depart-highlight">
+        <div><div class="depart-label">Leave by</div><div class="depart-time" id="depart-time"></div></div>
+        <div class="countdown" id="countdown"></div>
       </div>
-      <div class="row flight-when">
-        <div class="field"><label id="airport-label">Departure airport</label>
-          <button class="picker" aria-label="Departure airport: ${esc(trip.airport.code)}, ${esc(trip.airport.name)}. Change airport" onclick="openAirportSheet()">
-            <span class="code">${esc(trip.airport.code)}</span><span class="name">${esc(trip.airport.name)}</span><span class="chev">›</span>
-          </button></div>
-        <div class="field"><label for="f-time">Takeoff</label><input class="input" type="time" id="f-time" value="${trip.time}" required></div>
+      <div class="warning hidden" id="warning-box"></div>
+      <div class="flight-summary">
+        <span class="flight-code" id="flight-code">${esc(trip.airport.code)}</span>
+        <div class="flight-meta"><span id="flight-date"></span><span class="note" id="flight-time"></span></div>
+        <button class="link" onclick="openTripEditor()">Edit</button>
       </div>
       <div class="origin-section" id="origin-box"></div>
       <div id="estimate-box" aria-live="polite"></div>
     </div>
 
-    <div class="card timing-card">
-      <details class="trip-options" id="trip-options" ${optionsOpen ? 'open' : ''}>
-        <summary><span class="options-title">Trip options</span>
-          <span class="options-summary">${trip.type === 'international' ? 'International' : 'Domestic'} · ${esc((STOP_TYPES[trip.stopType] || STOP_TYPES.lounge).name)}</span></summary>
-        <div class="trip-options-content">
-          <label><input type="checkbox" id="f-international" aria-label="International trip" ${trip.type === 'international' ? 'checked' : ''} onchange="applyPreset(this.checked ? 'international' : 'domestic')">International trip</label>
-          <fieldset class="stop-options"><legend>Airport stop</legend><div class="stop-choices">
-            ${Object.entries(STOP_TYPES).map(([k, v]) => `<label><input type="radio" id="f-stop-${k}" name="airport-stop" value="${k}" ${trip.stopType === k ? 'checked' : ''} onchange="setStopType('${k}')">${v.name}</label>`).join('')}
-          </div></fieldset>
-        </div>
-      </details>
-      <div id="segs"></div>
-      <div class="divider"><span class="divider-label">Total lead time</span><span class="divider-value" id="total-time"></span></div>
-    </div>
-
-    <div class="card">
+    <div class="card schedule-card">
       <div class="section-title">Schedule
         <div class="schedule-export">
           <button class="link" onclick="copyScheduleImage()">Copy image</button>
-          <details class="schedule-options" id="schedule-options">
+          <details class="schedule-options action-menu" id="schedule-options">
             <summary aria-label="Schedule export options" title="Schedule export options">⌄</summary>
             <div class="export-menu">
               <button class="link" onclick="copyScheduleText()">Copy text</button>
@@ -788,44 +807,65 @@ function renderTrip(trip) {
         </div>
       </div>
       <div id="schedule-rows"></div>
-      <div class="depart-highlight">
-        <div><div class="depart-label">Leave home by</div><div class="depart-time" id="depart-time"></div></div>
-        <div class="countdown" id="countdown"></div>
-      </div>
-      <div class="warning hidden" id="warning-box">⚠ You should already be leaving!</div>
     </div>
 
-    <div class="actions">
-      <button class="btn" onclick="duplicateTrip()">Duplicate</button>
-      <button class="btn danger" onclick="deleteTrip()">Delete</button>
-    </div>`;
+    <details class="card timing-card disclosure-card" id="timing-adjustments" ${timingsOpen ? 'open' : ''}>
+      <summary><span class="options-title">Adjust timings</span><span class="options-summary" id="total-time"></span></summary>
+      <div id="segs"></div>
+    </details>
 
-  $('#f-name').addEventListener('input', e => { trip.name = e.target.value.trim(); $('.header-title').textContent = trip.name || 'New trip'; save(); });
+    <details class="card trip-options disclosure-card" id="trip-options" ${optionsOpen ? 'open' : ''}>
+      <summary><span class="options-title">Trip options</span>
+        <span class="options-summary">${trip.type === 'international' ? 'International' : 'Domestic'} · ${esc((STOP_TYPES[trip.stopType] || STOP_TYPES.lounge).name)}</span></summary>
+      <div class="trip-options-content">
+        <label><input type="checkbox" id="f-international" aria-label="International trip" ${trip.type === 'international' ? 'checked' : ''} onchange="applyPreset(this.checked ? 'international' : 'domestic')">International trip</label>
+        <fieldset class="stop-options"><legend>Airport stop</legend><div class="stop-choices">
+          ${Object.entries(STOP_TYPES).map(([k, v]) => `<label><input type="radio" id="f-stop-${k}" name="airport-stop" value="${k}" ${trip.stopType === k ? 'checked' : ''} onchange="setStopType('${k}')">${v.name}</label>`).join('')}
+        </div></fieldset>
+      </div>
+    </details>`;
+  renderOrigin(); renderEstimate(); renderSegments(); updateOutputs(); renderSync();
+}
+
+function openTripEditor(rename = false) {
+  const trip = cur;
+  openSheet('Edit trip', `<div class="trip-editor">
+    <div class="field"><label for="f-name">Trip name</label><input class="input" id="f-name" placeholder="Optional" maxlength="80" value="${esc(trip.name)}"></div>
+    <div class="field"><label id="airport-label">Departure airport</label>
+      <button class="picker" aria-label="Departure airport: ${esc(trip.airport.code)}, ${esc(trip.airport.name)}. Change airport" onclick="openAirportSheet()">
+        <span class="code">${esc(trip.airport.code)}</span><span class="name">${esc(trip.airport.name)}</span><span class="chev">›</span>
+      </button></div>
+    <div class="row">
+      <div class="field"><label for="f-date">Date</label><input class="input" type="date" id="f-date" value="${trip.date}" required></div>
+      <div class="field"><label for="f-time">Takeoff</label><input class="input" type="time" id="f-time" value="${trip.time}" required></div>
+    </div>
+  </div>`);
+  $('#f-name').addEventListener('input', e => { trip.name = e.target.value.trim(); save(); });
   $('#f-date').addEventListener('change', e => { if (e.target.value) { trip.date = e.target.value; save(); } });
-  $('#f-time').addEventListener('change', e => { if (e.target.value) { trip.time = e.target.value; save(); } });
-  $('#f-time').addEventListener('input', e => { if (e.target.value) { trip.time = e.target.value; updateOutputs(); } });
-
-  renderOrigin();
-  renderEstimate();
-  renderSegments();
-  updateOutputs();
-  renderSync();
+  $('#f-time').addEventListener('input', e => { if (e.target.value) { trip.time = e.target.value; save(); } });
+  if (rename) { $('#f-name').focus(); $('#f-name').select(); }
 }
 
 function save() { updateOutputs(); queueSave('trip', cur); }
 
 function updateOutputs() {
   const trip = cur, s = computeSchedule(trip);
-  $('#schedule-rows').innerHTML = s.rows.map(r => {
-    const day = isoDate(r.time) !== isoDate(s.takeoff) ? `<small>${fmtDay(r.time)}</small>` : '';
-    return `<div class="schedule-row"><div class="dot" style="background:${r.color}"></div>
-      <span class="time-val" style="color:${r.color}">${fmtTime(r.time)}${day}</span><span class="step-label">${r.label}</span></div>`;
-  }).join('');
+  const groups = groupTimelineRows([...s.rows].reverse());
+  $('#schedule-rows').innerHTML = groups.map(group =>
+    `${groups.length > 1 ? `<div class="schedule-day">${fmtDay(group.date)}</div>` : ''}${group.rows.map(r =>
+      `<div class="schedule-row"><div class="dot" style="background:${r.color}"></div>
+        <span class="time-val" style="color:${r.color}">${fmtTime(r.time)}</span><span class="step-label">${esc(plainStepLabel(r.label))}</span></div>`).join('')}`
+  ).join('');
+  $('#trip-title').textContent = trip.name || `${trip.airport.code} departure`;
   $('#depart-time').textContent = fmtTime(s.depart);
-  $('#total-time').textContent = fmtMins(s.total);
-  const ms = s.depart - Date.now();
+  $('#total-time').textContent = `${fmtMins(s.total)} total`;
+  $('#flight-code').textContent = trip.airport.code;
+  $('#flight-code').title = trip.airport.name;
+  $('#flight-date').textContent = fmtDay(s.takeoff);
+  $('#flight-time').textContent = `Takeoff ${fmtTime(s.takeoff)}`;
+  const ms = s.depart - Date.now(), minsUntil = ms / 60000;
   $('#countdown').innerHTML = `${fmtDay(s.depart)}<br>${fmtCountdown(ms)}`;
-  const minsUntil = ms / 60000;
+  $('#warning-box').textContent = minsUntil < 0 ? 'Your planned leave time has passed.' : 'You’ll need to leave soon.';
   $('#warning-box').classList.toggle('hidden', !(minsUntil < 30 && minsUntil > -60));
   $('#route-minutes').textContent = fmtMins(trip.cfg.drive);
 }
@@ -856,8 +896,9 @@ function deleteTrip() {
   location.hash = '';
 }
 let scheduleExportSeq = 0;
-function closeScheduleOptions() {
-  const options = $('#schedule-options');
+function closeScheduleOptions() { closeMenu('schedule-options'); }
+function closeMenu(id) {
+  const options = $('#' + id);
   const restoreFocus = options?.open && options.contains(document.activeElement);
   if (options) options.open = false;
   if (restoreFocus) options.querySelector('summary').focus();
@@ -906,17 +947,19 @@ function scheduleImageCanvas(trip) {
   const airport = canvasTextLines(ctx, `${trip.airport.code} · ${trip.airport.name}`, content);
   const date = d => d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   ctx.font = '16px sans-serif';
-  const rows = s.rows.map(r => {
-    const lines = canvasTextLines(ctx, r.label.replace(/^\S+\s/, ''), content - 128);
-    const otherDay = isoDate(r.time) !== isoDate(s.takeoff);
-    return { ...r, lines, otherDay, height: Math.max(lines.length * 22, otherDay ? 42 : 22) + 20 };
-  });
+  const groups = groupTimelineRows([...s.rows].reverse());
+  const rows = groups.flatMap(group => group.rows.map((r, i) => {
+    const lines = canvasTextLines(ctx, plainStepLabel(r.label), content - 128);
+    const dayHeading = groups.length > 1 && i === 0;
+    return { ...r, lines, dayHeading, height: Math.max(lines.length * 22, 22) + 20 + (dayHeading ? 30 : 0) };
+  }));
   ctx.font = '12px sans-serif';
   const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'device local time';
   const footer = canvasTextLines(ctx, `Times: ${zone} · Total lead time: ${fmtMins(s.total)}`, content);
-  const rowsStart = 24 + 14 + 12 + title.length * 30 + 8 + airport.length * 20 + 22 + 20;
-  const highlightY = rowsStart + rows.reduce((sum, r) => sum + r.height, 0) + 16;
-  const height = highlightY + 112 + 20 + footer.length * 18 + 24;
+  const highlightY = 24 + 14 + 12 + title.length * 30 + 8 + airport.length * 20 + 22 + 20;
+  const rowsStart = highlightY + 128;
+  const footerY = rowsStart + rows.reduce((sum, r) => sum + r.height, 0) + 20;
+  const height = footerY + footer.length * 18 + 24;
   canvas.height = height * 2;
   ctx.scale(2, 2); ctx.textBaseline = 'top';
   ctx.fillStyle = '#080e1a'; ctx.fillRect(0, 0, width, height);
@@ -931,18 +974,19 @@ function scheduleImageCanvas(trip) {
   text(date(s.takeoff), pad, y, '14px sans-serif', '#00e5ff');
   y = rowsStart;
   for (const row of rows) {
+    if (row.dayHeading) { text(date(row.time), pad, y + 8, 'bold 12px sans-serif', '#00e5ff'); y += 30; }
     text(fmtTime(row.time), pad, y + 10, 'bold 16px monospace', row.color);
-    if (row.otherDay) text(fmtDay(row.time), pad, y + 33, '11px sans-serif', '#8a9ab8');
     row.lines.forEach((line, i) => text(line, pad + 128, y + 10 + i * 22, '16px sans-serif'));
-    ctx.fillStyle = '#1a2840'; ctx.fillRect(pad, y + row.height - 1, content, 1);
-    y += row.height;
+    const rowHeight = row.height - (row.dayHeading ? 30 : 0);
+    ctx.fillStyle = '#1a2840'; ctx.fillRect(pad, y + rowHeight - 1, content, 1);
+    y += rowHeight;
   }
   ctx.fillStyle = '#101f30'; ctx.fillRect(pad, highlightY, content, 112);
   ctx.fillStyle = '#ff4d6d'; ctx.fillRect(pad, highlightY, 3, 112);
   text('LEAVE HOME BY', pad + 16, highlightY + 14, 'bold 11px sans-serif', '#ff4d6d');
   text(fmtTime(s.depart), pad + 16, highlightY + 34, 'bold 36px monospace', '#ff4d6d');
   text(date(s.depart), pad + 16, highlightY + 82, '14px sans-serif');
-  footer.forEach((line, i) => text(line, pad, highlightY + 132 + i * 18, '12px sans-serif', '#8a9ab8'));
+  footer.forEach((line, i) => text(line, pad, footerY + i * 18, '12px sans-serif', '#8a9ab8'));
   return canvas;
 }
 
@@ -1442,8 +1486,7 @@ function closeSheet() {
 }
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    const options = $('#schedule-options');
-    if (options?.open) { options.open = false; options.querySelector('summary').focus(); }
+    document.querySelectorAll('.action-menu[open]').forEach(options => closeMenu(options.id));
     closeSheet();
   }
   const sheet = $('#sheet-root .sheet');
@@ -1456,8 +1499,9 @@ document.addEventListener('keydown', e => {
   else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 });
 document.addEventListener('pointerdown', e => {
-  const options = $('#schedule-options');
-  if (options?.open && !options.contains(e.target)) options.open = false;
+  document.querySelectorAll('.action-menu[open]').forEach(options => {
+    if (!options.contains(e.target)) options.open = false;
+  });
 });
 
 // Refresh countdowns once a minute.
