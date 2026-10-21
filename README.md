@@ -14,7 +14,7 @@ wrangler.toml                Pages + D1 binding config
 ## Features
 
 - **Airport picker**: built-in list of ~60 US airports, plus a worldwide search (OpenStreetMap) for any other airport.
-- **Drive estimate**: from a searched address, a saved place (Home, Office), or the device's current location. Routing comes from the public OSRM server, which has no live traffic data. Estimates are rounded up to 5 minutes, with no automatic traffic buffer. Add extra time with the drive bar as needed. Adjusting the drive bar by hand switches it to "set manually"; the estimate panel then offers to re-apply.
+- **Starting address and drive estimate**: a compact row shows the selected address and drive minutes. Search/Change opens an address panel with a current-location button inside the search field; picking an address closes it. Online results prefer the airport area and are sorted by distance to the airport, while addresses farther away remain searchable. Saved places filter locally as you type. Routing comes from the public OSRM server, which has no live traffic data. Estimates are rounded up to 5 minutes, with no automatic traffic buffer. Add extra time with the drive bar as needed. The address panel also lets you refresh or re-apply the route estimate.
 - **Bars**: every segment goes to 0. Each bar has −/+ buttons (hold to repeat), tap-to-jump and horizontal drag on the track (vertical swipes still scroll the page), and tapping the value lets you type an exact number of minutes.
 - **Airport stop**: Lounge or Straight to gate. Straight to gate hides the dwell time and second walk.
 - **Presets**: Domestic and International set every segment except the drive, which depends on location.
@@ -73,11 +73,13 @@ echo 'SYNC_TOKEN=dev-passphrase' > .dev.vars
 npx wrangler pages dev        # http://localhost:8788, local D1
 ```
 
+Run the address-search regression tests with `node --test tests/*.test.cjs` (no test dependencies required).
+
 ## Security notes
 
 - One passphrase protects all data. The cookie stores an HMAC derived from it, is `HttpOnly; Secure; SameSite=Strict`, and writes require `application/json`, which blocks cross-site form posts.
 - Failed logins are delayed 750 ms. There is no lockout, so use a long random passphrase (step 3). Rotating `SYNC_TOKEN` signs out every device.
-- Address searches and routing requests go from the browser to `nominatim.openstreetmap.org` and `router.project-osrm.org`. Both are free public services with fair-use limits; this app makes requests only on explicit user action.
+- Address searches and routing requests go from the browser to `nominatim.openstreetmap.org` and `router.project-osrm.org`. Both are free public services with fair-use limits; this app makes requests only on explicit user action. The public [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/) prohibits online autocomplete and limits the application to one request per second. Geocoder calls are serialized and spaced in each browser, and repeated address searches use a small in-memory cache. This remains suitable only for light personal use; multiple users' combined requests count toward the service limit. Only saved-place suggestions update as you type, without network requests.
 
 ## Swapping the routing provider
 

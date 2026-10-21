@@ -120,16 +120,25 @@
     .trip-details .flight-when .field { margin-bottom: 0; }
     .trip-details .flight-when .date-field { flex: 0 0 136px; }
     .trip-details .flight-when + .flight-when { margin-top: 10px; }
-    .trip-details .section-title { margin-bottom: 8px; }
     .origin-section { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; }
-    .origin-selected { font-size: 13px; line-height: 1.4; margin-bottom: 8px; overflow-wrap: anywhere; }
+    .route-summary { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; }
+    .route-address { min-width: 0; }
+    .route-label { display: block; font-size: 13px; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .route-duration { text-align: right; }
+    #route-minutes { display: block; color: var(--cyan); font: 600 18px var(--mono); }
+    #drive-source { display: block; font-size: 11px; }
+    .route-summary .btn { padding: 0 10px; }
+    .address-entry { display: flex; flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+    .address-entry:focus-within { border-color: var(--cyan); }
+    .address-entry .input { flex: 1; min-width: 0; border: 0; background: transparent; }
+    .location-button { flex: 0 0 44px; min-height: 44px; border: 0; background: transparent; color: var(--cyan); font-size: 24px; }
+    .address-status { margin-top: 10px; }
+    .address-options { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .address-options .link { min-height: 44px; }
     .origin-search { gap: 8px; }
     .origin-search .btn { flex: 0 0 auto; padding: 0 12px; }
     .origin-toolbar { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
     .origin-toolbar .link { min-height: 44px; font-size: 13px; }
-    .saved-places { margin-bottom: 8px; flex-wrap: nowrap; overflow-x: auto; }
-    .saved-places > * { flex: 0 0 auto; }
-    .saved-places .chip { min-height: 44px; }
     @media (max-width: 360px) {
       .trip-details .picker { justify-content: space-between; }
       .trip-details .picker .name { display: none; }
@@ -141,10 +150,6 @@
     .result:last-child { border-bottom: none; }
     .result .code { font-family: var(--mono); font-weight: 700; color: var(--cyan); margin-right: 8px; }
     .result small { color: var(--muted); }
-
-    /* Estimate box */
-    .estimate { margin-top: 12px; padding: 12px; border-radius: 8px; background: #0a1a26; border: 1px solid #00e5ff30; }
-    .estimate .big { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--cyan); }
 
     /* Segment bars */
     .seg { margin-bottom: 16px; }
@@ -219,6 +224,7 @@
       border-radius: 16px 16px 0 0; padding: 18px 16px max(env(safe-area-inset-bottom), 18px);
     }
     .sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .sheet-head .link { min-width: 44px; min-height: 44px; }
     .sheet-title { font-size: 16px; font-weight: 700; }
 
     .toast { position: fixed; left: 50%; bottom: max(env(safe-area-inset-bottom), 24px); transform: translateX(-50%); background: #12203a; border: 1px solid var(--border); padding: 10px 16px; border-radius: 20px; font-size: 13px; z-index: 20; }
@@ -368,10 +374,23 @@ function shortAddress(r) {
   return parts.length ? [...new Set(parts)].join(', ') : r.display_name;
 }
 
+let geocoderQueue = Promise.resolve(), lastGeocoderAt = 0;
 async function getJSON(url, opts) {
-  const res = await fetch(url, opts);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  const request = async () => {
+    const res = await fetch(url, opts);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  };
+  if (!url.startsWith(GEOCODER)) return request();
+  // The public geocoder permits explicit searches, at most one per second.
+  const pending = geocoderQueue.then(async () => {
+    const delay = Math.max(0, 1000 - (Date.now() - lastGeocoderAt));
+    if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+    lastGeocoderAt = Date.now();
+    return request();
+  });
+  geocoderQueue = pending.catch(() => {});
+  return pending;
 }
 
 /* ───────────── State ───────────── */
@@ -723,12 +742,8 @@ function renderTrip(trip) {
           </button></div>
         <div class="field"><label for="f-time">Takeoff</label><input class="input" type="time" id="f-time" value="${trip.time}" required></div>
       </div>
-      <div class="origin-section">
-        <div class="field"><label for="addr">Starting address</label>
-          <div id="origin-box"></div></div>
-      </div>
-      <div class="section-title">Drive time <span id="drive-source" class="note"></span></div>
-      <div id="estimate-box"></div>
+      <div class="origin-section" id="origin-box"></div>
+      <div id="estimate-box" aria-live="polite"></div>
     </div>
 
     <div class="card card-tight">
@@ -789,7 +804,8 @@ function updateOutputs() {
   $('#countdown').innerHTML = `${fmtDay(s.depart)}<br>${fmtCountdown(ms)}`;
   const minsUntil = ms / 60000;
   $('#warning-box').classList.toggle('hidden', !(minsUntil < 30 && minsUntil > -60));
-  $('#drive-source').textContent = trip.driveSource === 'estimate' ? 'from estimate' : 'set manually';
+  $('#drive-source').textContent = trip.driveSource === 'estimate' ? 'estimated' : 'manual';
+  $('#route-minutes').textContent = fmtMins(trip.cfg.drive);
 }
 
 function applyPreset(type) {
@@ -947,60 +963,151 @@ function wireSegment(el) {
 
 /* ───────────── Origin & drive estimate ───────────── */
 
-function renderOrigin(results, status) {
-  const trip = cur;
-  const places = [...state.places.values()].sort((a, b) => a.label.localeCompare(b.label));
-  const o = trip.origin;
-  const savedMatch = o && places.find(p => p.lat === o.lat && p.lon === o.lon);
-  $('#origin-box').innerHTML = `
-    ${o ? `<p class="origin-selected">📍 ${esc(o.name ? o.name + ' — ' : '')}${esc(o.label)}</p>` : ''}
-    ${places.length ? `<div class="chips saved-places" aria-label="Saved starting addresses">${places.map(p =>
-        `<span style="display:inline-flex"><button class="chip ${savedMatch && savedMatch.id === p.id ? 'active' : ''}" onclick="useSavedPlace('${p.id}')">${esc(p.name)}</button></span>`).join('')}
-        <button class="chip" onclick="managePlaces()">Edit…</button></div>` : ''}
+let originSearchSeq = 0;
+const addressSearchCache = new Map();
+
+function airportDistanceKm(result, airport) {
+  const lat = Number(result.lat), lon = Number(result.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return Infinity;
+  const rad = degrees => degrees * Math.PI / 180;
+  const dLat = rad(lat - airport.lat), dLon = rad(lon - airport.lon);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(airport.lat)) * Math.cos(rad(lat)) * Math.sin(dLon / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.sqrt(clamp(h, 0, 1)));
+}
+
+function rankByAirport(results, airport) {
+  return [...results].sort((a, b) => airportDistanceKm(a, airport) - airportDistanceKm(b, airport));
+}
+
+function addressSearchURL(query, airport) {
+  const latSpan = 1.5, lonSpan = latSpan / Math.max(0.1, Math.cos(airport.lat * Math.PI / 180));
+  const params = new URLSearchParams({
+    format: 'jsonv2', addressdetails: '1', limit: '8', q: query,
+    viewbox: [clamp(airport.lon - lonSpan, -180, 180), clamp(airport.lat + latSpan, -90, 90),
+              clamp(airport.lon + lonSpan, -180, 180), clamp(airport.lat - latSpan, -90, 90)].join(','),
+    bounded: '0', // Prefer the airport area, while allowing addresses farther away.
+  });
+  return `${GEOCODER}/search?${params}`;
+}
+
+function matchingSavedPlaces(query, airport, places = [...state.places.values()]) {
+  const words = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  return rankByAirport(places.filter(p => words.every(word => `${p.name} ${p.label}`.toLowerCase().includes(word))), airport);
+}
+
+function renderOrigin() {
+  const o = cur.origin;
+  const box = $('#origin-box');
+  const hadFocus = box.contains(document.activeElement);
+  const isReturnTarget = sheetReturnFocus && box.contains(sheetReturnFocus);
+  box.innerHTML = `
+    <div class="route-summary">
+      <div class="route-address"><span class="note">Starting address</span>
+        <span class="route-label">${o ? esc(o.name ? `${o.name} · ${o.label}` : o.label) : 'Choose starting point'}</span></div>
+      <div class="route-duration"><span class="note">Drive</span><span id="route-minutes">${fmtMins(cur.cfg.drive)}</span>
+        <span class="note" id="drive-source">${cur.driveSource === 'estimate' ? 'estimated' : 'manual'}</span></div>
+      <button class="btn" aria-label="${o ? 'Change' : 'Search for'} starting address" onclick="openOriginSheet()">${o ? 'Change' : 'Search'}</button>
+    </div>`;
+  if (isReturnTarget) sheetReturnFocus = box.querySelector('button');
+  if (hadFocus) box.querySelector('button').focus();
+}
+
+function openOriginSheet() {
+  const o = cur.origin;
+  const saved = o && [...state.places.values()].some(p => p.lat === o.lat && p.lon === o.lon);
+  openSheet('Starting address', `
     <form class="row origin-search" onsubmit="event.preventDefault();searchAddress()">
-      <input class="input" id="addr" placeholder="Search an address" autocomplete="street-address" enterkeyhint="search">
-      <button class="btn">Find</button>
+      <div class="address-entry">
+        <input class="input" id="addr" aria-label="Search starting address" value="${esc(o?.label || '')}" placeholder="Street address or saved place" autocomplete="off" enterkeyhint="search">
+        <button type="button" class="location-button" aria-label="Use current location" title="Use current location" onclick="useCurrentLocation()">◎</button>
+      </div>
+      <button class="btn" type="submit">Find</button>
     </form>
+    <p class="note" style="margin-top:8px">Matches nearest ${esc(cur.airport.code)} appear first. Add a city or state to search elsewhere.</p>
+    <p class="note address-status" id="address-status" role="status"></p>
+    <div id="saved-origin-results"></div>
+    <div id="address-results"></div>
     <div class="origin-toolbar">
-      <button class="link" onclick="useCurrentLocation()">◎ Current location</button>
-      ${o && !savedMatch ? `<button class="link" onclick="savePlace()">Save address</button>` : ''}
+      ${o && !saved ? '<button class="link" onclick="savePlace()">Save current address</button>' : ''}
+      ${state.places.size ? '<button class="link" onclick="managePlaces()">Manage saved places</button>' : ''}
     </div>
-    ${status ? `<p class="note ${status.err ? 'err' : ''}" style="margin-top:10px">${esc(status.text)}</p>` : ''}
-    ${results ? `<div class="results">${results.length ? results.map((r, i) =>
-        `<button class="result" onclick="pickAddress(${i})">${esc(shortAddress(r))}<br><small>${esc(r.display_name)}</small></button>`).join('')
-        : `<div class="result">No matches. Include city and state.</div>`}</div>` : ''}`;
-  renderOrigin.results = results;
+    <div id="drive-options"></div>
+    <p class="footer">Search © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a></p>`);
+  const input = $('#addr');
+  input.addEventListener('input', () => {
+    originSearchSeq++;
+    $('#address-results').innerHTML = '';
+    $('#address-status').textContent = '';
+    renderSavedOrigins(input.value);
+  });
+  renderSavedOrigins(input.value);
+  renderDriveOptions();
+  input.focus(); input.select();
+}
+
+function renderSavedOrigins(query) {
+  const box = $('#saved-origin-results');
+  if (!box) return;
+  const places = matchingSavedPlaces(query, cur.airport);
+  box.innerHTML = places.length ? `<div class="results">${places.map(p =>
+    `<button class="result" onclick="useSavedPlace('${p.id}')"><b>${esc(p.name)}</b><br><small>${esc(p.label)}</small></button>`).join('')}</div>` : '';
+}
+
+function addressStatus(text, error = false) {
+  const box = $('#address-status');
+  if (!box) return;
+  box.textContent = text;
+  box.classList.toggle('err', error);
 }
 
 async function searchAddress() {
-  const q = $('#addr').value.trim();
-  if (!q) return;
-  renderOrigin(null, { text: 'Searching…' });
+  const input = $('#addr'), trip = cur;
+  const q = input?.value.trim();
+  if (!q) { input?.focus(); return; }
+  const seq = ++originSearchSeq, airport = trip.airport;
+  const url = addressSearchURL(q, airport);
+  addressStatus('Searching…');
+  $('#address-results').innerHTML = '';
   try {
-    const r = await getJSON(`${GEOCODER}/search?format=jsonv2&addressdetails=1&limit=5&q=${encodeURIComponent(q)}`);
-    renderOrigin(r);
-  } catch { renderOrigin(null, { text: 'Address search failed. Check the connection and try again.', err: true }); }
+    const cached = addressSearchCache.get(url);
+    const results = cached || rankByAirport(await getJSON(url), airport);
+    if (!cached) {
+      if (addressSearchCache.size >= 50) addressSearchCache.delete(addressSearchCache.keys().next().value);
+      addressSearchCache.set(url, results);
+    }
+    if (seq !== originSearchSeq || cur !== trip || !$('#addr')) return;
+    searchAddress.results = results;
+    addressStatus(results.length ? 'Choose your starting address.' : 'No matches. Include a city or state.');
+    $('#address-results').innerHTML = results.length ? `<div class="results">${results.map((r, i) =>
+      `<button class="result" onclick="pickAddress(${i})">${esc(shortAddress(r))}<br><small>${esc(r.display_name)}</small></button>`).join('')}</div>` : '';
+  } catch {
+    if (seq !== originSearchSeq || cur !== trip || !$('#addr')) return;
+    addressStatus('Address search failed. Try again, or set drive minutes manually.', true);
+  }
 }
 
 function pickAddress(i) {
-  const r = renderOrigin.results[i];
+  const r = searchAddress.results[i];
   setOrigin({ label: shortAddress(r), lat: +(+r.lat).toFixed(5), lon: +(+r.lon).toFixed(5) });
 }
 
 function useCurrentLocation() {
-  if (!navigator.geolocation) { renderOrigin(null, { text: 'This browser does not provide location.', err: true }); return; }
-  renderOrigin(null, { text: 'Getting your location…' });
+  if (!navigator.geolocation) { addressStatus('This browser does not provide location.', true); return; }
+  const trip = cur, seq = ++originSearchSeq;
+  addressStatus('Getting your location…');
   navigator.geolocation.getCurrentPosition(async pos => {
+    if (cur !== trip || seq !== originSearchSeq || !$('#addr')) return;
     const lat = +pos.coords.latitude.toFixed(5), lon = +pos.coords.longitude.toFixed(5);
     let label = `${lat}, ${lon}`;
     try {
       const r = await getJSON(`${GEOCODER}/reverse?format=jsonv2&addressdetails=1&zoom=17&lat=${lat}&lon=${lon}`);
       if (r && !r.error) label = shortAddress(r);
     } catch { /* coordinates are enough */ }
+    if (cur !== trip || seq !== originSearchSeq || !$('#addr')) return;
     setOrigin({ label, lat, lon });
   }, err => {
     const msg = err.code === 1 ? 'Location permission denied. Allow location for this site, or search an address.' : 'Could not get your location. Search an address instead.';
-    renderOrigin(null, { text: msg, err: true });
+    if (cur === trip && seq === originSearchSeq && $('#addr')) addressStatus(msg, true);
   }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 });
 }
 
@@ -1011,6 +1118,7 @@ function useSavedPlace(id) {
 
 function setOrigin(o) {
   cur.origin = o;
+  closeSheet();
   renderOrigin();
   save();
   estimateDrive(true);
@@ -1024,6 +1132,7 @@ function savePlace() {
   state.places.set(p.id, p); queueSave('place', p);
   cur.origin = { ...o, name: p.name }; save();
   renderOrigin();
+  if ($('#addr')) openOriginSheet();
 }
 
 function managePlaces() {
@@ -1055,7 +1164,7 @@ async function estimateDrive(apply) {
     if (apply || trip.driveSource === 'estimate') applyEstimate();
     else { renderEstimate(); save(); }
   } catch (e) {
-    if (seq !== estimateSeq) return;
+    if (seq !== estimateSeq || cur !== trip) return;
     renderEstimate({ error: 'No driving route found, or the routing service is unreachable. Set the drive time manually.' });
   }
 }
@@ -1072,28 +1181,36 @@ function applyEstimate() {
   renderEstimate(); save();
 }
 
-function renderEstimate(st = {}) {
-  const trip = cur, e = trip.estimate, box = $('#estimate-box');
+function hasCurrentEstimate(trip) {
+  const e = trip.estimate;
+  return e && trip.origin && e.airportCode === trip.airport.code && e.originLabel === trip.origin.label;
+}
+
+function renderDriveOptions() {
+  const box = $('#drive-options');
   if (!box) return;
-  const stale = e && (e.airportCode !== trip.airport.code || !trip.origin || e.originLabel !== trip.origin.label);
-  if (!trip.origin) { box.innerHTML = `<p class="note" style="margin-top:12px">Pick a starting point to estimate the drive, or set the drive bar below by hand.</p>`; return; }
-  if (st.loading) { box.innerHTML = `<div class="estimate note">Estimating route to ${esc(trip.airport.code)}…</div>`; return; }
-  if (st.error) { box.innerHTML = `<div class="estimate note err">${esc(st.error)} <button class="link" onclick="estimateDrive(true)">Retry</button></div>`; return; }
-  if (!e || stale) { box.innerHTML = `<button class="btn primary block" style="margin-top:12px" onclick="estimateDrive(true)">Estimate drive to ${esc(trip.airport.code)}</button>`; return; }
-  const minutes = roundedDriveMins(trip);
-  box.innerHTML = `
-    <div class="estimate">
-      <div style="display:flex;justify-content:space-between;align-items:baseline">
-        <span class="big">${fmtMins(minutes)}</span>
-        <span class="note">${fmtMins(e.baseMins)} no traffic · ${Math.round(e.km * 0.621)} mi</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
-        ${trip.driveSource === 'estimate' && trip.cfg.drive === minutes
-          ? `<span class="note">Applied to drive bar</span>`
-          : `<button class="link" onclick="applyEstimate()">Use ${fmtMins(minutes)} for the drive bar</button>`}
-        <button class="link" onclick="estimateDrive(false)">Refresh</button>
-      </div>
-    </div>`;
+  if (!cur.origin) { box.innerHTML = ''; return; }
+  if (!hasCurrentEstimate(cur)) {
+    box.innerHTML = '<button class="link" onclick="estimateDrive(true)">Calculate drive time</button>';
+    return;
+  }
+  const minutes = roundedDriveMins(cur);
+  box.innerHTML = `<div class="address-options">
+    <span class="note">Route: ${fmtMins(minutes)} · ${Math.round(cur.estimate.km * 0.621)} mi · no live traffic</span>
+    <button class="link" onclick="estimateDrive(false)">Refresh route</button>
+    ${cur.driveSource === 'estimate' && cur.cfg.drive === minutes ? '' :
+      `<button class="link" onclick="applyEstimate()">Use ${fmtMins(minutes)} estimate</button>`}
+  </div>`;
+}
+
+function renderEstimate(st = {}) {
+  const box = $('#estimate-box');
+  if (!box) return;
+  if (st.loading) box.innerHTML = '<p class="note" style="margin-top:8px">Calculating drive time…</p>';
+  else if (st.error) box.innerHTML = `<p class="note err" style="margin-top:8px">${esc(st.error)} <button class="link" onclick="estimateDrive(true)">Retry</button></p>`;
+  else if (cur.origin && !hasCurrentEstimate(cur)) box.innerHTML = '<button class="link" onclick="estimateDrive(true)">Calculate drive time</button>';
+  else box.innerHTML = '';
+  renderDriveOptions();
 }
 
 /* ───────────── Airport picker ───────────── */
@@ -1158,14 +1275,33 @@ function setAirport(a) {
 
 /* ───────────── Sheet ───────────── */
 
+let sheetReturnFocus = null;
 function openSheet(title, body) {
+  originSearchSeq++;
+  if (!$('#sheet-root .sheet')) sheetReturnFocus = document.activeElement;
   $('#sheet-root').innerHTML = `<div class="sheet-backdrop" onclick="if(event.target===this)closeSheet()">
     <div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}">
       <div class="sheet-head"><span class="sheet-title">${esc(title)}</span><button class="link" style="font-size:15px" onclick="closeSheet()">Done</button></div>
       ${body}</div></div>`;
+  $('#sheet-root .sheet button')?.focus();
 }
-function closeSheet() { $('#sheet-root').innerHTML = ''; }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+function closeSheet() {
+  originSearchSeq++;
+  $('#sheet-root').innerHTML = '';
+  if (sheetReturnFocus?.isConnected) sheetReturnFocus.focus();
+  sheetReturnFocus = null;
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeSheet();
+  const sheet = $('#sheet-root .sheet');
+  if (e.key !== 'Tab' || !sheet) return;
+  const controls = sheet.querySelectorAll('button:not([disabled]), input:not([disabled]), a[href]');
+  const first = controls[0], last = controls[controls.length - 1];
+  if (!first) return;
+  if (!sheet.contains(document.activeElement)) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+  else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
 
 // Refresh countdowns once a minute.
 setInterval(() => {
