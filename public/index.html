@@ -143,34 +143,25 @@
     .result .code { font-family: var(--mono); font-weight: 700; color: var(--cyan); margin-right: 8px; }
     .result small { color: var(--muted); }
 
-    /* Segment bars */
-    .seg { margin-bottom: 16px; }
-    .seg:last-of-type { margin-bottom: 0; }
-    .seg-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
-    .seg-label { font-size: 13px; color: #aab4c8; }
+    /* Compact duration rows */
+    .seg { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; }
+    .seg-label { flex: 1; min-width: 0; font-size: 13px; line-height: 1.35; color: #aab4c8; }
     .seg-val {
-      font-family: var(--mono); font-size: 14px; font-weight: 600; background: none; border: none;
-      border-bottom: 1px dashed var(--dim); padding: 4px 2px; min-width: 64px; text-align: right;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 64px; min-width: 64px; min-height: 44px; padding: 4px 2px;
+      font-family: var(--mono); font-size: 14px; font-weight: 600; text-align: center;
+      background: none; border: none; border-bottom: 1px dashed var(--dim);
     }
     .seg-val.zero { color: var(--dim); }
-    .seg-edit { font-family: var(--mono); font-size: 16px; width: 84px; text-align: right; padding: 4px 6px; background: var(--bg); color: var(--text); border: 1px solid var(--cyan); border-radius: 6px; outline: none; }
-    .seg-ctl { display: flex; align-items: center; gap: 10px; }
+    .seg-val:focus-visible, .step:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+    .seg-edit { font-family: var(--mono); font-size: 16px; width: 64px; min-height: 44px; text-align: center; padding: 4px 2px; background: var(--bg); color: var(--text); border: 1px solid var(--cyan); border-radius: 6px; outline: none; }
+    .seg-ctl { display: flex; align-items: center; flex: 0 0 auto; gap: 4px; }
     .step {
       width: 44px; height: 44px; flex-shrink: 0; border-radius: 10px; border: 1px solid var(--border);
       background: #12203a; font-size: 22px; font-weight: 600; line-height: 1; touch-action: manipulation;
       user-select: none; -webkit-user-select: none;
     }
     .step:active { background: #1a2d50; }
-    .bar { position: relative; flex: 1; height: 44px; touch-action: pan-y; cursor: pointer; outline: none; user-select: none; -webkit-user-select: none; }
-    .bar-bg, .bar-fill { position: absolute; left: 0; top: 50%; height: 8px; margin-top: -4px; border-radius: 4px; }
-    .bar-bg { right: 0; background: var(--track); }
-    .bar-fill { background: linear-gradient(90deg, var(--cyan), var(--green)); }
-    .bar-thumb {
-      position: absolute; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%;
-      background: var(--text); border: 3px solid var(--cyan); box-shadow: 0 2px 8px #0008; transition: transform 0.1s;
-    }
-    .bar.dragging .bar-thumb, .bar:focus-visible .bar-thumb { transform: scale(1.2); }
-    .bar:focus-visible .bar-bg { box-shadow: 0 0 0 2px var(--cyan); }
 
     .divider { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
     .divider-label { font-size: 12px; color: var(--dim); }
@@ -192,9 +183,6 @@
     .stop-options { border: 0; padding: 0; margin-top: 4px; min-width: 0; }
     .stop-options legend { font-size: 11px; color: var(--muted); }
     .stop-choices { display: flex; gap: 16px; flex-wrap: wrap; }
-    .timing-card .seg { margin-bottom: 6px; }
-    .timing-card .seg:last-of-type { margin-bottom: 0; }
-    .timing-card .seg-head { margin-bottom: 0; }
     .timing-card .divider { margin-top: 10px; padding-top: 10px; }
 
     /* Schedule */
@@ -255,7 +243,7 @@
 /* ───────────── Configuration ───────────── */
 
 const API = 'api';
-// Free, keyless services. Neither includes live traffic; adjust the drive bar as needed.
+// Free, keyless services. Neither includes live traffic; adjust drive minutes as needed.
 const GEOCODER = 'https://nominatim.openstreetmap.org';
 const ROUTER = 'https://router.project-osrm.org/route/v1/driving';
 
@@ -852,22 +840,17 @@ async function copySchedule() {
   catch { prompt('Copy the schedule:', text); }
 }
 
-/* ───────────── Segment bars ───────────── */
+/* ───────────── Duration controls ───────────── */
 
 function renderSegments() {
   const trip = cur;
   $('#segs').innerHTML = SEGMENTS.filter(s => segVisible(trip, s.key)).map(s => `
     <div class="seg" data-key="${s.key}">
-      <div class="seg-head">
-        <span class="seg-label" id="lbl-${s.key}">${esc(segLabel(trip, s.key))}</span>
-        <button class="seg-val" aria-label="Type exact minutes"></button>
-      </div>
-      <div class="seg-ctl">
-        <button class="step" data-d="-1" aria-label="Decrease ${esc(segLabel(trip, s.key))}">−</button>
-        <div class="bar" role="slider" tabindex="0" aria-labelledby="lbl-${s.key}" aria-valuemin="0">
-          <div class="bar-bg"></div><div class="bar-fill"></div><div class="bar-thumb"></div>
-        </div>
-        <button class="step" data-d="1" aria-label="Increase ${esc(segLabel(trip, s.key))}">+</button>
+      <span class="seg-label" id="lbl-${s.key}">${esc(segLabel(trip, s.key))}</span>
+      <div class="seg-ctl" role="group" aria-labelledby="lbl-${s.key}">
+        <button type="button" class="step" data-d="-1" aria-label="Decrease ${esc(segLabel(trip, s.key))}">−</button>
+        <button type="button" class="seg-val" title="Tap to enter exact minutes"></button>
+        <button type="button" class="step" data-d="1" aria-label="Increase ${esc(segLabel(trip, s.key))}">+</button>
       </div>
     </div>`).join('');
   document.querySelectorAll('.seg').forEach(wireSegment);
@@ -883,61 +866,17 @@ function setSeg(key, value, commit = true) {
 }
 
 function paintSeg(el) {
-  const key = el.dataset.key, v = cur.cfg[key], max = segMax(cur, key);
-  const pct = (v / max) * 100;
-  el.querySelector('.bar-fill').style.width = `${pct}%`;
-  el.querySelector('.bar-thumb').style.left = `${pct}%`;
+  const key = el.dataset.key, v = cur.cfg[key];
   const val = el.querySelector('.seg-val');
+  if (!val) return; // Keep an active exact-minutes editor intact.
   val.textContent = fmtMins(v);
   val.classList.toggle('zero', v === 0);
-  const bar = el.querySelector('.bar');
-  bar.setAttribute('aria-valuemax', max);
-  bar.setAttribute('aria-valuenow', v);
-  bar.setAttribute('aria-valuetext', fmtMins(v));
+  val.setAttribute('aria-label', `${segLabel(cur, key)}: ${v} minutes. Edit exact minutes`);
 }
 
 function wireSegment(el) {
   const key = el.dataset.key;
-  const bar = el.querySelector('.bar');
   paintSeg(el);
-
-  // Bar: tap to jump, horizontal drag to scrub. Vertical swipes scroll the page without changing the value.
-  const valueAt = x => {
-    const r = bar.getBoundingClientRect();
-    const raw = ((x - r.left) / r.width) * segMax(cur, key);
-    return clamp(Math.round(raw / STEP) * STEP, 0, segMax(cur, key));
-  };
-  let drag = null;
-  bar.addEventListener('pointerdown', e => {
-    if (e.button !== 0) return;
-    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, active: e.pointerType === 'mouse' };
-    bar.setPointerCapture(e.pointerId);
-    if (drag.active) { bar.classList.add('dragging'); setSeg(key, valueAt(e.clientX), false); }
-  });
-  bar.addEventListener('pointermove', e => {
-    if (!drag || e.pointerId !== drag.id) return;
-    const dx = Math.abs(e.clientX - drag.x), dy = Math.abs(e.clientY - drag.y);
-    if (!drag.active && dx > 6 && dx > dy) { drag.active = true; bar.classList.add('dragging'); }
-    if (drag.active) { e.preventDefault(); setSeg(key, valueAt(e.clientX), false); }
-  });
-  const end = (e, cancelled) => {
-    if (!drag || e.pointerId !== drag.id) return;
-    const moved = Math.hypot(e.clientX - drag.x, e.clientY - drag.y);
-    if (!cancelled && !drag.active && moved < 10) setSeg(key, valueAt(e.clientX));
-    else if (drag.active) save();
-    bar.classList.remove('dragging');
-    drag = null;
-  };
-  bar.addEventListener('pointerup', e => end(e, false));
-  bar.addEventListener('pointercancel', e => end(e, true));
-  bar.addEventListener('keydown', e => {
-    const v = cur.cfg[key], max = segMax(cur, key);
-    const next = { ArrowLeft: v - STEP, ArrowDown: v - STEP, ArrowRight: v + STEP, ArrowUp: v + STEP,
-                   PageDown: v - 30, PageUp: v + 30, Home: 0, End: max }[e.key];
-    if (next === undefined) return;
-    e.preventDefault();
-    setSeg(key, clamp(next, 0, max));
-  });
 
   // −/+ buttons: tap for one step, hold to repeat.
   el.querySelectorAll('.step').forEach(btn => {
@@ -952,6 +891,7 @@ function wireSegment(el) {
     btn.addEventListener('pointerdown', e => {
       if (e.button !== 0) return;
       e.preventDefault();
+      btn.focus({ preventScroll: true }); // Commit any open minutes editor before stepping.
       bump();
       const repeat = delay => { timer = setTimeout(() => { bump(); repeat(Math.max(60, delay * 0.85)); }, delay); };
       repeat(400);
@@ -967,15 +907,20 @@ function wireSegment(el) {
     const input = document.createElement('input');
     input.className = 'seg-edit'; input.type = 'number'; input.inputMode = 'numeric';
     input.min = 0; input.max = 600; input.value = cur.cfg[key];
+    input.setAttribute('aria-label', `${segLabel(cur, key)} in minutes`);
     btn.replaceWith(input); input.focus(); input.select();
     let done = false;
     const commit = ok => {
       if (done) return; done = true;
       const n = parseInt(input.value, 10);
+      const restoreFocus = document.activeElement === input;
       input.replaceWith(btn);
       if (ok && Number.isFinite(n)) setSeg(key, clamp(n, 0, 600)); else paintSeg(el);
+      if (restoreFocus) btn.focus();
     };
-    input.addEventListener('keydown', ev => { if (ev.key === 'Enter') commit(true); if (ev.key === 'Escape') commit(false); });
+    input.addEventListener('keydown', ev => {
+      if (ev.key === 'Enter' || ev.key === 'Escape') { ev.preventDefault(); commit(ev.key === 'Enter'); }
+    });
     input.addEventListener('blur', () => commit(true));
   });
 }
