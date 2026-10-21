@@ -186,6 +186,16 @@
     .timing-card .divider { margin-top: 10px; padding-top: 10px; }
 
     /* Schedule */
+    .schedule-export { display: flex; align-items: center; gap: 2px; }
+    .schedule-export .link { min-height: 44px; letter-spacing: normal; text-transform: none; }
+    .schedule-options { position: relative; }
+    .schedule-options summary { display: flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; list-style: none; cursor: pointer; color: var(--cyan); font-size: 18px; }
+    .schedule-options summary::-webkit-details-marker { display: none; }
+    .export-menu { position: absolute; right: 0; top: 100%; z-index: 2; min-width: 170px; padding: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px #0008; }
+    .export-menu .link { display: block; width: 100%; padding: 10px; text-align: left; }
+    .schedule-preview { display: block; width: 100%; height: auto; margin-top: 12px; border-radius: 8px; }
+    .image-export-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .image-export-actions > * { flex: 1; text-decoration: none; }
     .schedule-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #0d1e30; }
     .schedule-row:last-child { border-bottom: none; }
     .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
@@ -723,6 +733,7 @@ function segMax(trip, key) {
 
 function renderTrip(trip) {
   if (!trip) { location.hash = ''; return; }
+  scheduleExportSeq++;
   if (trip.stopType === 'dining') trip.stopType = 'lounge';
   const optionsOpen = cur?.id === trip.id && !!$('#trip-options')?.open;
   cur = trip;
@@ -764,7 +775,18 @@ function renderTrip(trip) {
     </div>
 
     <div class="card">
-      <div class="section-title">Schedule <button class="link" onclick="copySchedule()">Copy</button></div>
+      <div class="section-title">Schedule
+        <div class="schedule-export">
+          <button class="link" onclick="copyScheduleImage()">Copy image</button>
+          <details class="schedule-options" id="schedule-options">
+            <summary aria-label="Schedule export options" title="Schedule export options">⌄</summary>
+            <div class="export-menu">
+              <button class="link" onclick="copyScheduleText()">Copy text</button>
+              <button class="link" onclick="previewScheduleImage()">Share / save image</button>
+            </div>
+          </details>
+        </div>
+      </div>
       <div id="schedule-rows"></div>
       <div class="depart-highlight">
         <div><div class="depart-label">Leave home by</div><div class="depart-time" id="depart-time"></div></div>
@@ -834,10 +856,171 @@ function deleteTrip() {
   state.trips.delete(cur.id); queueDelete('trip', cur.id);
   location.hash = '';
 }
-async function copySchedule() {
+let scheduleExportSeq = 0;
+function closeScheduleOptions() {
+  const options = $('#schedule-options');
+  const restoreFocus = options?.open && options.contains(document.activeElement);
+  if (options) options.open = false;
+  if (restoreFocus) options.querySelector('summary').focus();
+}
+
+async function copyScheduleText() {
+  closeScheduleOptions();
   const text = scheduleText(cur);
   try { await navigator.clipboard.writeText(text); toast('Schedule copied'); }
   catch { prompt('Copy the schedule:', text); }
+}
+
+function canvasTextLines(ctx, text, width) {
+  const lines = [];
+  for (const paragraph of String(text).split(/\r?\n/)) {
+    let line = '';
+    for (let word of paragraph.split(/\s+/).filter(Boolean)) {
+      while (ctx.measureText(word).width > width) {
+        if (line) { lines.push(line); line = ''; }
+        let chunk = '';
+        for (const char of word) {
+          if (chunk && ctx.measureText(chunk + char).width > width) break;
+          chunk += char;
+        }
+        lines.push(chunk); word = word.slice(chunk.length);
+      }
+      if (!word) continue;
+      const next = line ? `${line} ${word}` : word;
+      if (line && ctx.measureText(next).width > width) { lines.push(line); line = word; }
+      else line = next;
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
+function scheduleImageCanvas(trip) {
+  const s = computeSchedule(trip), width = 440, pad = 24, content = width - pad * 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = width * 2;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Image generation is unavailable');
+  ctx.font = 'bold 24px sans-serif';
+  const title = canvasTextLines(ctx, trip.name || `${trip.airport.code} departure`, content);
+  ctx.font = '14px sans-serif';
+  const airport = canvasTextLines(ctx, `${trip.airport.code} · ${trip.airport.name}`, content);
+  const date = d => d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  ctx.font = '16px sans-serif';
+  const rows = s.rows.map(r => {
+    const lines = canvasTextLines(ctx, r.label.replace(/^\S+\s/, ''), content - 128);
+    const otherDay = isoDate(r.time) !== isoDate(s.takeoff);
+    return { ...r, lines, otherDay, height: Math.max(lines.length * 22, otherDay ? 42 : 22) + 20 };
+  });
+  ctx.font = '12px sans-serif';
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'device local time';
+  const footer = canvasTextLines(ctx, `Times: ${zone} · Total lead time: ${fmtMins(s.total)}`, content);
+  const rowsStart = 24 + 14 + 12 + title.length * 30 + 8 + airport.length * 20 + 22 + 20;
+  const highlightY = rowsStart + rows.reduce((sum, r) => sum + r.height, 0) + 16;
+  const height = highlightY + 112 + 20 + footer.length * 18 + 24;
+  canvas.height = height * 2;
+  ctx.scale(2, 2); ctx.textBaseline = 'top';
+  ctx.fillStyle = '#080e1a'; ctx.fillRect(0, 0, width, height);
+  const text = (value, x, y, font, color = '#e2e8f4') => {
+    ctx.font = font; ctx.fillStyle = color; ctx.fillText(value, x, y);
+  };
+  text('FLIGHT PLAN', pad, 24, 'bold 11px sans-serif', '#8a9ab8');
+  let y = 50;
+  for (const line of title) { text(line, pad, y, 'bold 24px sans-serif'); y += 30; }
+  y += 8;
+  for (const line of airport) { text(line, pad, y, '14px sans-serif', '#8a9ab8'); y += 20; }
+  text(date(s.takeoff), pad, y, '14px sans-serif', '#00e5ff');
+  y = rowsStart;
+  for (const row of rows) {
+    text(fmtTime(row.time), pad, y + 10, 'bold 16px monospace', row.color);
+    if (row.otherDay) text(fmtDay(row.time), pad, y + 33, '11px sans-serif', '#8a9ab8');
+    row.lines.forEach((line, i) => text(line, pad + 128, y + 10 + i * 22, '16px sans-serif'));
+    ctx.fillStyle = '#1a2840'; ctx.fillRect(pad, y + row.height - 1, content, 1);
+    y += row.height;
+  }
+  ctx.fillStyle = '#101f30'; ctx.fillRect(pad, highlightY, content, 112);
+  ctx.fillStyle = '#ff4d6d'; ctx.fillRect(pad, highlightY, 3, 112);
+  text('LEAVE HOME BY', pad + 16, highlightY + 14, 'bold 11px sans-serif', '#ff4d6d');
+  text(fmtTime(s.depart), pad + 16, highlightY + 34, 'bold 36px monospace', '#ff4d6d');
+  text(date(s.depart), pad + 16, highlightY + 82, '14px sans-serif');
+  footer.forEach((line, i) => text(line, pad, highlightY + 132 + i * 18, '12px sans-serif', '#8a9ab8'));
+  return canvas;
+}
+
+function scheduleImageBlob(trip) {
+  return new Promise((resolve, reject) => {
+    try {
+      scheduleImageCanvas(trip).toBlob(blob => blob ? resolve(blob) : reject(new Error('PNG creation failed')), 'image/png');
+    } catch (error) { reject(error); }
+  });
+}
+
+async function copyScheduleImage() {
+  closeScheduleOptions();
+  const seq = ++scheduleExportSeq;
+  const trip = JSON.parse(JSON.stringify(cur));
+  const image = scheduleImageBlob(trip);
+  if (navigator.clipboard?.write && typeof ClipboardItem !== 'undefined') {
+    try {
+      // Safari requires clipboard.write within the click gesture. Pass the PNG promise directly.
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': image })]);
+      toast('Schedule image copied');
+      return;
+    } catch { /* Offer the actual image when clipboard access is unavailable or denied. */ }
+  }
+  try {
+    const blob = await image;
+    if (isCurrentScheduleExport(seq, trip)) showScheduleImage(blob, trip);
+  }
+  catch { toast('Could not create the image. Use Copy text from the options menu.'); }
+}
+
+async function previewScheduleImage() {
+  closeScheduleOptions();
+  const seq = ++scheduleExportSeq;
+  const trip = JSON.parse(JSON.stringify(cur));
+  try {
+    const blob = await scheduleImageBlob(trip);
+    if (isCurrentScheduleExport(seq, trip)) showScheduleImage(blob, trip);
+  }
+  catch { toast('Could not create the image. Use Copy text from the options menu.'); }
+}
+
+function isCurrentScheduleExport(seq, trip) {
+  return seq === scheduleExportSeq && cur?.id === trip.id && state.view.name === 'trip' && state.view.id === trip.id;
+}
+
+let scheduleImagePreview = null;
+function clearScheduleImagePreview() {
+  if (scheduleImagePreview) URL.revokeObjectURL(scheduleImagePreview.url);
+  scheduleImagePreview = null;
+}
+
+function showScheduleImage(blob, trip) {
+  const url = URL.createObjectURL(blob);
+  const filename = `flight-plan-${trip.airport.code}-${trip.date}.png`;
+  openSheet('Schedule image', `
+    <p class="note">Share or save this picture. On iPhone, you can also touch and hold it to copy or save.</p>
+    <div class="image-export-actions">
+      <button class="btn" onclick="shareScheduleImage()">Share image</button>
+      <a class="btn" href="${url}" download="${esc(filename)}">Save image</a>
+    </div>
+    <img class="schedule-preview" src="${url}" alt="${esc(trip.name || 'Flight plan')} — ${esc(trip.airport.code)}, ${esc(trip.date)}. Full schedule and leave-home time.">`);
+  scheduleImagePreview = { blob, url, filename, title: trip.name || `${trip.airport.code} flight plan` };
+}
+
+async function shareScheduleImage() {
+  const preview = scheduleImagePreview;
+  if (!preview) return;
+  try {
+    const file = new File([preview.blob], preview.filename, { type: 'image/png' });
+    if (!navigator.share || !navigator.canShare?.({ files: [file] })) {
+      toast('Use Save image, or touch and hold the picture.'); return;
+    }
+    await navigator.share({ files: [file], title: preview.title });
+  } catch (error) {
+    if (error.name !== 'AbortError') toast('Sharing is unavailable. Use Save image instead.');
+  }
 }
 
 /* ───────────── Duration controls ───────────── */
@@ -1241,6 +1424,8 @@ function setAirport(a) {
 
 let sheetReturnFocus = null;
 function openSheet(title, body) {
+  scheduleExportSeq++;
+  clearScheduleImagePreview();
   originSearchSeq++;
   if (!$('#sheet-root .sheet')) sheetReturnFocus = document.activeElement;
   $('#sheet-root').innerHTML = `<div class="sheet-backdrop" onclick="if(event.target===this)closeSheet()">
@@ -1250,13 +1435,19 @@ function openSheet(title, body) {
   $('#sheet-root .sheet button')?.focus();
 }
 function closeSheet() {
+  scheduleExportSeq++;
+  clearScheduleImagePreview();
   originSearchSeq++;
   $('#sheet-root').innerHTML = '';
   if (sheetReturnFocus?.isConnected) sheetReturnFocus.focus();
   sheetReturnFocus = null;
 }
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeSheet();
+  if (e.key === 'Escape') {
+    const options = $('#schedule-options');
+    if (options?.open) { options.open = false; options.querySelector('summary').focus(); }
+    closeSheet();
+  }
   const sheet = $('#sheet-root .sheet');
   if (e.key !== 'Tab' || !sheet) return;
   const controls = sheet.querySelectorAll('button:not([disabled]), input:not([disabled]), a[href]');
@@ -1265,6 +1456,10 @@ document.addEventListener('keydown', e => {
   if (!sheet.contains(document.activeElement)) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
   else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
   else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+document.addEventListener('pointerdown', e => {
+  const options = $('#schedule-options');
+  if (options?.open && !options.contains(e.target)) options.open = false;
 });
 
 // Refresh countdowns once a minute.

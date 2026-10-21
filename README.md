@@ -18,7 +18,8 @@ wrangler.toml                Pages + D1 binding config
 - **Duration controls**: compact rows show each segment's name and duration between −/+ buttons, with no sliders. Tap to move to the next five-minute step, hold to repeat, or tap the duration to enter exact minutes, including 0. Enter or leaving the field saves; Escape cancels.
 - **Trip options**: a small section above the timing rows is collapsed by default and summarizes the current Domestic/International and Lounge/Straight to gate choices. Expand it to change either option; it stays open while you adjust them. Straight to gate hides the dwell time and second walk.
 - **Presets**: the **International trip** checkbox in Trip options selects International; unchecked means Domestic and is the default for new trips. Switching it sets every segment except the drive, which depends on location.
-- **Trips**: list of upcoming and past trips with leave-by times and countdowns; duplicate, delete, and copy the schedule as text. Each trip has a date, so overnight schedules show the correct day.
+- **Trips**: list of upcoming and past trips with leave-by times and countdowns; duplicate or delete trips. Each trip has a date, so overnight schedules show the correct day.
+- **Schedule export**: **Copy image** copies a crisp PNG of the full timeline, including overnight dates, airport, trip name, leave-home time and device time zone. The options dropdown offers **Copy text** and **Share / save image**. If image clipboard access is unavailable or denied, the image opens in a preview with sharing and download controls. On iPhone, the picture can also be touched and held to copy/save. Images are snapshots and do not update when a trip changes.
 - **Sync**: trips and saved places are stored in Cloudflare D1 and are available on any browser signed in with the passphrase. Export and Import (JSON) serve as backup.
 
 If the page is served without the API (plain static host or opened from disk), it runs in local-only mode with a warning, and data is lost when the page closes unless exported.
@@ -73,7 +74,7 @@ echo 'SYNC_TOKEN=dev-passphrase' > .dev.vars
 npx wrangler pages dev        # http://localhost:8788, local D1
 ```
 
-Run the address-search regression tests with `node --test tests/*.test.cjs` (no test dependencies required).
+Run the regression tests with `node --test tests/*.test.cjs` (no test dependencies required).
 
 ## Security notes
 
