@@ -112,11 +112,6 @@
     .trip-details .flight-when .field { margin-bottom: 0; }
     .trip-details .flight-when .date-field { flex: 0 0 136px; }
     .trip-details .flight-when + .flight-when { margin-top: 10px; }
-    .trip-name-label { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-height: 32px; margin-bottom: 6px; }
-    .trip-name-label > label { margin-bottom: 0; }
-    .field label.international-check { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; min-height: 32px; margin: 0; font-size: 11px; white-space: nowrap; cursor: pointer; }
-    .international-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--cyan); }
-    .trip-details .date-field > label { display: flex; align-items: center; min-height: 32px; }
     .origin-section { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; }
     .route-summary { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; }
     .route-address { min-width: 0; }
@@ -183,9 +178,20 @@
 
     /* Reduce whitespace around the controls, preserving their full touch areas. */
     .timing-card { padding: 14px; }
-    .timing-card .section-title { margin-bottom: 8px; }
-    .timing-card .stop-options { margin-bottom: 8px; }
-    .timing-card .stop-options .chip { min-height: 44px; }
+    .trip-options { margin-bottom: 8px; }
+    .trip-options summary { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; list-style: none; }
+    .trip-options summary::-webkit-details-marker { display: none; }
+    .trip-options summary::after { content: '›'; color: var(--dim); font-size: 20px; flex: 0 0 auto; }
+    .trip-options[open] summary::after { transform: rotate(90deg); }
+    .trip-options summary:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; border-radius: 4px; }
+    .options-title { font-size: 12px; color: var(--muted); flex: 0 0 auto; }
+    .options-summary { margin-left: auto; font-size: 11px; color: var(--muted); line-height: 1.4; text-align: right; }
+    .trip-options-content { padding: 4px 0 10px; border-bottom: 1px solid var(--border); }
+    .trip-options-content label { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 13px; color: var(--muted); cursor: pointer; }
+    .trip-options-content input { width: 18px; height: 18px; margin: 0; accent-color: var(--cyan); }
+    .stop-options { border: 0; padding: 0; margin-top: 4px; min-width: 0; }
+    .stop-options legend { font-size: 11px; color: var(--muted); }
+    .stop-choices { display: flex; gap: 16px; flex-wrap: wrap; }
     .timing-card .seg { margin-bottom: 6px; }
     .timing-card .seg:last-of-type { margin-bottom: 0; }
     .timing-card .seg-head { margin-bottom: 0; }
@@ -730,6 +736,7 @@ function segMax(trip, key) {
 function renderTrip(trip) {
   if (!trip) { location.hash = ''; return; }
   if (trip.stopType === 'dining') trip.stopType = 'lounge';
+  const optionsOpen = cur?.id === trip.id && !!$('#trip-options')?.open;
   cur = trip;
   const app = $('#app');
   app.innerHTML = `
@@ -738,10 +745,7 @@ function renderTrip(trip) {
 
     <div class="card trip-details">
       <div class="row flight-when">
-        <div class="field"><div class="trip-name-label"><label for="f-name">Trip name</label>
-          <label class="international-check" title="International trip; unchecked means domestic">
-            <input type="checkbox" id="f-international" aria-label="International trip" ${trip.type === 'international' ? 'checked' : ''} onchange="applyPreset(this.checked ? 'international' : 'domestic')">Intl.
-          </label></div>
+        <div class="field"><label for="f-name">Trip name</label>
           <input class="input" id="f-name" placeholder="Optional" value="${esc(trip.name)}" maxlength="80"></div>
         <div class="field date-field"><label for="f-date">Date</label><input class="input" type="date" id="f-date" value="${trip.date}" required></div>
       </div>
@@ -757,10 +761,16 @@ function renderTrip(trip) {
     </div>
 
     <div class="card timing-card">
-      <div class="section-title">Time at the airport</div>
-      <div class="chips stop-options">
-        ${Object.entries(STOP_TYPES).map(([k, v]) => `<button class="chip ${trip.stopType === k ? 'active' : ''}" onclick="setStopType('${k}')">${v.name}</button>`).join('')}
-      </div>
+      <details class="trip-options" id="trip-options" ${optionsOpen ? 'open' : ''}>
+        <summary><span class="options-title">Trip options</span>
+          <span class="options-summary">${trip.type === 'international' ? 'International' : 'Domestic'} · ${esc((STOP_TYPES[trip.stopType] || STOP_TYPES.lounge).name)}</span></summary>
+        <div class="trip-options-content">
+          <label><input type="checkbox" id="f-international" aria-label="International trip" ${trip.type === 'international' ? 'checked' : ''} onchange="applyPreset(this.checked ? 'international' : 'domestic')">International trip</label>
+          <fieldset class="stop-options"><legend>Airport stop</legend><div class="stop-choices">
+            ${Object.entries(STOP_TYPES).map(([k, v]) => `<label><input type="radio" id="f-stop-${k}" name="airport-stop" value="${k}" ${trip.stopType === k ? 'checked' : ''} onchange="setStopType('${k}')">${v.name}</label>`).join('')}
+          </div></fieldset>
+        </div>
+      </details>
       <div id="segs"></div>
       <div class="divider"><span class="divider-label">Total lead time</span><span class="divider-value" id="total-time"></span></div>
     </div>
@@ -818,7 +828,11 @@ function applyPreset(type) {
   renderTrip(cur); save();
   if (restoreFocus) $('#f-international').focus();
 }
-function setStopType(k) { cur.stopType = k; renderTrip(cur); save(); }
+function setStopType(k) {
+  const focusedId = document.activeElement?.id;
+  cur.stopType = k; renderTrip(cur); save();
+  if (focusedId?.startsWith('f-stop-')) document.getElementById(focusedId)?.focus();
+}
 
 function duplicateTrip() {
   const copy = JSON.parse(JSON.stringify(cur));
