@@ -14,9 +14,9 @@ wrangler.toml                Pages + D1 binding config
 ## Features
 
 - **Airport picker**: built-in list of ~60 US airports, plus a worldwide search (OpenStreetMap) for any other airport.
-- **Drive estimate**: from a searched address, a saved place (Home, Office), or the device's current location. Routing comes from the public OSRM server, which has no live traffic data, so a traffic padding (+0–50%) is applied and the result is rounded up to 5 minutes. Adjusting the drive bar by hand switches it to "set manually"; the estimate panel then offers to re-apply.
+- **Drive estimate**: from a searched address, a saved place (Home, Office), or the device's current location. Routing comes from the public OSRM server, which has no live traffic data. Estimates are rounded up to 5 minutes, with no automatic traffic buffer. Add extra time with the drive bar as needed. Adjusting the drive bar by hand switches it to "set manually"; the estimate panel then offers to re-apply.
 - **Bars**: every segment goes to 0. Each bar has −/+ buttons (hold to repeat), tap-to-jump and horizontal drag on the track (vertical swipes still scroll the page), and tapping the value lets you type an exact number of minutes.
-- **Airport stop**: Lounge, Restaurant, or Straight to gate. Straight to gate hides the dwell time and second walk.
+- **Airport stop**: Lounge or Straight to gate. Straight to gate hides the dwell time and second walk.
 - **Presets**: Domestic and International set every segment except the drive, which depends on location.
 - **Trips**: list of upcoming and past trips with leave-by times and countdowns; duplicate, delete, and copy the schedule as text. Each trip has a date, so overnight schedules show the correct day.
 - **Sync**: trips and saved places are stored in Cloudflare D1 and are available on any browser signed in with the passphrase. Export and Import (JSON) serve as backup.

@@ -236,7 +236,7 @@
 /* ───────────── Configuration ───────────── */
 
 const API = 'api';
-// Free, keyless services. Neither includes live traffic; the traffic padding compensates.
+// Free, keyless services. Neither includes live traffic; adjust the drive bar as needed.
 const GEOCODER = 'https://nominatim.openstreetmap.org';
 const ROUTER = 'https://router.project-osrm.org/route/v1/driving';
 
@@ -260,8 +260,6 @@ const STOP_TYPES = {
   lounge: { name: 'Lounge',     walk1: 'Security → lounge walk',     dwell: 'Lounge time',     walk2: 'Lounge → gate walk',     arrive: '🥃 Arrive lounge',     leave: '🚶 Leave lounge → gate' },
   none:   { name: 'Straight to gate', walk1: 'Security → gate walk' },
 };
-
-const TRAFFIC_PADS = [0, 10, 20, 30, 50];
 
 // Major airports (terminal-area coordinates). Any other airport can be found with the worldwide search.
 const AIRPORTS = [
@@ -402,7 +400,6 @@ function newTrip() {
     type: 'domestic',
     stopType: recent?.stopType || 'lounge',
     cfg: { drive: recent?.cfg?.drive ?? 90, ...PRESETS.domestic },
-    trafficPad: recent?.trafficPad ?? 10,
     estimate: recent?.estimate || null,   // { baseMins, km, airportCode, originLabel, at }
     driveSource: recent?.driveSource || 'manual',
     updatedAt: Date.now(),
@@ -1063,22 +1060,16 @@ async function estimateDrive(apply) {
   }
 }
 
-function paddedMins(trip) {
-  const raw = trip.estimate.baseMins * (1 + trip.trafficPad / 100);
-  return Math.ceil(raw / STEP) * STEP;
+function roundedDriveMins(trip) {
+  return Math.ceil(trip.estimate.baseMins / STEP) * STEP;
 }
 
 function applyEstimate() {
-  cur.cfg.drive = paddedMins(cur);
+  cur.cfg.drive = roundedDriveMins(cur);
   cur.driveSource = 'estimate';
   const el = document.querySelector('.seg[data-key="drive"]');
   if (el) paintSeg(el);
   renderEstimate(); save();
-}
-
-function setPad(p) {
-  cur.trafficPad = p;
-  if (cur.estimate) applyEstimate(); else { renderEstimate(); save(); }
 }
 
 function renderEstimate(st = {}) {
@@ -1089,19 +1080,17 @@ function renderEstimate(st = {}) {
   if (st.loading) { box.innerHTML = `<div class="estimate note">Estimating route to ${esc(trip.airport.code)}…</div>`; return; }
   if (st.error) { box.innerHTML = `<div class="estimate note err">${esc(st.error)} <button class="link" onclick="estimateDrive(true)">Retry</button></div>`; return; }
   if (!e || stale) { box.innerHTML = `<button class="btn primary block" style="margin-top:12px" onclick="estimateDrive(true)">Estimate drive to ${esc(trip.airport.code)}</button>`; return; }
-  const padded = paddedMins(trip);
+  const minutes = roundedDriveMins(trip);
   box.innerHTML = `
     <div class="estimate">
       <div style="display:flex;justify-content:space-between;align-items:baseline">
-        <span class="big">${fmtMins(padded)}</span>
+        <span class="big">${fmtMins(minutes)}</span>
         <span class="note">${fmtMins(e.baseMins)} no traffic · ${Math.round(e.km * 0.621)} mi</span>
       </div>
-      <div class="note" style="margin:10px 0 6px">Traffic padding</div>
-      <div class="chips">${TRAFFIC_PADS.map(p => `<button class="chip ${trip.trafficPad === p ? 'active' : ''}" onclick="setPad(${p})">+${p}%</button>`).join('')}</div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
-        ${trip.driveSource === 'estimate' && trip.cfg.drive === padded
+        ${trip.driveSource === 'estimate' && trip.cfg.drive === minutes
           ? `<span class="note">Applied to drive bar</span>`
-          : `<button class="link" onclick="applyEstimate()">Use ${fmtMins(padded)} for the drive bar</button>`}
+          : `<button class="link" onclick="applyEstimate()">Use ${fmtMins(minutes)} for the drive bar</button>`}
         <button class="link" onclick="estimateDrive(false)">Refresh</button>
       </div>
     </div>`;
